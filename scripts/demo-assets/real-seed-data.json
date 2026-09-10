@@ -1,0 +1,258 @@
+{
+  "calls": [
+    {
+      "id": "b40cb684-2425-45c8-84fd-46071891b016",
+      "recorded_at": "2026-09-09T20:46:54.826Z",
+      "duration_sec": 51,
+      "status": "analyzed",
+      "source": "manual-upload",
+      "direction": "unknown",
+      "agent_name": "Team Member",
+      "agent_email": "eduardobonto@gmail.com",
+      "agent_role": "Customer Service Rep",
+      "overall_score": 27,
+      "band": "needs-intervention",
+      "outcome": "unresolved",
+      "flags_json": "[\"no part lookup performed\",\"no price or shipping info given\",\"customer discouraged from ordering by phone\",\"call ended with issue unresolved\"]",
+      "email_status": "sent",
+      "sent_at": "2026-09-09T20:46:55.518Z",
+      "to_email": "eduardobonto@gmail.com"
+    }
+  ],
+  "details": {
+    "b40cb684-2425-45c8-84fd-46071891b016": {
+      "id": "b40cb684-2425-45c8-84fd-46071891b016",
+      "recorded_at": "2026-09-09T20:46:54.826Z",
+      "duration_sec": 51,
+      "status": "analyzed",
+      "audio_path": "1788986809488-welsford_call_coaching_sample.mp3",
+      "agent_name": "Team Member",
+      "agent_email": "eduardobonto@gmail.com",
+      "agent_role": "Customer Service Rep",
+      "engine": "faster-whisper/small.en",
+      "turns": [
+        {
+          "start": 0,
+          "speaker": "customer",
+          "text": "Hi, good morning. I'm calling about a valve from Welsford. I need a 2-inch stainless steel ball valve for a water line."
+        },
+        {
+          "start": 7,
+          "speaker": "agent",
+          "text": "Yeah. What's the part number?"
+        },
+        {
+          "start": 9,
+          "speaker": "customer",
+          "text": "I don't actually have a part number. I was hoping you could help me figure out which one I need."
+        },
+        {
+          "start": 14,
+          "speaker": "agent",
+          "text": "I can't really guess for you. If you don't have the part number, just check the website."
+        },
+        {
+          "start": 18,
+          "speaker": "customer",
+          "text": "Okay. Do you at least know if the 2-inch stainless one is in stock?"
+        },
+        {
+          "start": 22,
+          "speaker": "agent",
+          "text": "Probably. I'd have to go look. Hold on."
+        },
+        {
+          "start": 26,
+          "speaker": "customer",
+          "text": "Sure, I can wait. And while you're checking, how much is it and how fast can you ship it?"
+        },
+        {
+          "start": 32,
+          "speaker": "agent",
+          "text": "It's whatever the site says, and shipping takes however long it takes. I don't control that."
+        },
+        {
+          "start": 37,
+          "speaker": "customer",
+          "text": "All right. Can I just place the order with you over the phone?"
+        },
+        {
+          "start": 41,
+          "speaker": "agent",
+          "text": "You can, but honestly, it's faster if you just do it online yourself. Is there anything else? I've got other calls waiting."
+        },
+        {
+          "start": 47,
+          "speaker": "customer",
+          "text": "No. No, I guess that's it."
+        },
+        {
+          "start": 49,
+          "speaker": "agent",
+          "text": "Okay, bye."
+        }
+      ],
+      "analysis": {
+        "rubricVersion": "2026.1",
+        "overallScore": 27,
+        "band": "needs-intervention",
+        "outcome": "unresolved",
+        "scores": [
+          {
+            "key": "empathy",
+            "label": "Empathy",
+            "score": 1,
+            "rationale": "No acknowledgment of the customer's situation at any point. Responses are curt and dismissive rather than helpful, and the agent implies impatience instead of reassurance.",
+            "evidence": [
+              {
+                "t": 14,
+                "quote": "I can't really guess for you."
+              },
+              {
+                "t": 41,
+                "quote": "I've got other calls waiting."
+              }
+            ]
+          },
+          {
+            "key": "communication",
+            "label": "Communication",
+            "score": 2,
+            "rationale": "Answers are understandable but minimal and non-committal \u2014 no explanation, no next steps offered, nothing confirmed in concrete terms.",
+            "evidence": [
+              {
+                "t": 32,
+                "quote": "It's whatever the site says, and shipping takes however long it takes. I don't control that."
+              }
+            ]
+          },
+          {
+            "key": "professionalism",
+            "label": "Professionalism",
+            "score": 2,
+            "rationale": "Not overtly hostile, but repeatedly blunt to the point of sounding annoyed, and steers the customer away from doing business over the phone.",
+            "evidence": [
+              {
+                "t": 41,
+                "quote": "You can, but honestly, it's faster if you just do it online yourself."
+              }
+            ]
+          },
+          {
+            "key": "process",
+            "label": "Process Adherence",
+            "score": 1,
+            "rationale": "No attempt to look up the part from the description given (size, material, application). Stock was guessed at ('probably') rather than confirmed before answering.",
+            "evidence": [
+              {
+                "t": 14,
+                "quote": "just check the website."
+              },
+              {
+                "t": 22,
+                "quote": "Probably. I'd have to go look."
+              }
+            ]
+          },
+          {
+            "key": "resolution",
+            "label": "Issue Resolution",
+            "score": 1,
+            "rationale": "Call ends with no part identified, no confirmed stock, no price, no shipping estimate, and no order placed \u2014 every question the customer asked was deflected.",
+            "evidence": [
+              {
+                "t": 37,
+                "quote": "Can I just place the order with you over the phone?"
+              },
+              {
+                "t": 47,
+                "quote": "No. No, I guess that's it."
+              }
+            ]
+          }
+        ],
+        "strengths": [
+          {
+            "title": "Stayed on the call",
+            "detail": "Despite the customer not having a part number, the agent kept responding to each question rather than cutting the call short."
+          },
+          {
+            "title": "Didn't invent an answer",
+            "detail": "The agent avoided guessing at exact stock or price rather than telling the customer something that might be wrong."
+          }
+        ],
+        "improvements": [
+          {
+            "title": "Offer to look up the part instead of sending the customer away",
+            "detail": "\"2-inch stainless ball valve for a water line\" is enough to search a catalog. Redirecting the customer to do that work themselves loses the sale and the relationship.",
+            "instead": "I can't really guess for you. If you don't have the part number, just check the website.",
+            "say": "No problem \u2014 let me pull up 2-inch stainless ball valves for water line service and we'll find the right one together."
+          },
+          {
+            "title": "Confirm stock, price, and shipping before answering",
+            "detail": "Saying \"probably\" and \"whatever the site says\" gives the customer nothing to act on and makes the company look disorganized.",
+            "instead": "It's whatever the site says, and shipping takes however long it takes. I don't control that.",
+            "say": "Let me check right now \u2014 I can give you the exact price and ship date before we hang up."
+          },
+          {
+            "title": "Don't discourage the customer from buying on the call",
+            "detail": "Telling a ready buyer it's \"faster\" to order online themselves, right after mentioning other calls waiting, reads as wanting to get off the phone rather than close the sale.",
+            "instead": "You can, but honestly, it's faster if you just do it online yourself. Is there anything else? I've got other calls waiting.",
+            "say": "Absolutely, I can place that order for you right now \u2014 let's get it done."
+          }
+        ],
+        "practiceAction": "Before your next call, practice this response for when a customer doesn't have a part number: offer to look it up with them using what they describe, instead of sending them to find it themselves.",
+        "flags": [
+          "no part lookup performed",
+          "no price or shipping info given",
+          "customer discouraged from ordering by phone",
+          "call ended with issue unresolved"
+        ]
+      },
+      "email": {
+        "status": "sent",
+        "to": "eduardobonto@gmail.com",
+        "subject": "Call coaching \u2014 27/100 (9/10/2026)",
+        "sentAt": "2026-09-09T20:46:55.518Z"
+      }
+    }
+  },
+  "rubric": {
+    "version": "2026.1",
+    "dimensions": [
+      {
+        "key": "empathy",
+        "label": "Empathy",
+        "weight": 25,
+        "description": "Acknowledges the customer's frustration or situation before problem-solving; tone matches the moment."
+      },
+      {
+        "key": "communication",
+        "label": "Communication",
+        "weight": 20,
+        "description": "Clear, jargon-free explanations; confirms understanding; avoids talking over the customer."
+      },
+      {
+        "key": "professionalism",
+        "label": "Professionalism",
+        "weight": 15,
+        "description": "Courteous throughout, even under pressure; no defensiveness, sarcasm, or dismissiveness."
+      },
+      {
+        "key": "process",
+        "label": "Process Adherence",
+        "weight": 20,
+        "description": "Follows required steps (verification, documentation, escalation path) for the call type."
+      },
+      {
+        "key": "resolution",
+        "label": "Issue Resolution",
+        "weight": 20,
+        "description": "Diagnoses the actual concern and either resolves it or sets a clear, correct next step."
+      }
+    ]
+  },
+  "emails": {
+    "b40cb684-2425-45c8-84fd-46071891b016": "\n  <div style=\"font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;color:#1a1a1a\">\n    <h2 style=\"margin-bottom:0\">Hi Team, here's coaching on your recent call</h2>\n    <p style=\"color:#555;margin-top:4px\">Overall score: <strong style=\"font-size:18px\">27/100</strong> (needs intervention)</p>\n\n    <h3>Scorecard</h3>\n    <table style=\"border-collapse:collapse;width:100%;font-size:14px\"><tr>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5\">Empathy</td>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5;text-align:right;font-weight:600\">1/5</td>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5;color:#555\">No acknowledgment of the customer's situation at any point. Responses are curt and dismissive rather than helpful, and the agent implies impatience instead of reassurance.</td>\n      </tr><tr>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5\">Communication</td>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5;text-align:right;font-weight:600\">2/5</td>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5;color:#555\">Answers are understandable but minimal and non-committal \u2014 no explanation, no next steps offered, nothing confirmed in concrete terms.</td>\n      </tr><tr>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5\">Professionalism</td>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5;text-align:right;font-weight:600\">2/5</td>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5;color:#555\">Not overtly hostile, but repeatedly blunt to the point of sounding annoyed, and steers the customer away from doing business over the phone.</td>\n      </tr><tr>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5\">Process Adherence</td>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5;text-align:right;font-weight:600\">1/5</td>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5;color:#555\">No attempt to look up the part from the description given (size, material, application). Stock was guessed at ('probably') rather than confirmed before answering.</td>\n      </tr><tr>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5\">Issue Resolution</td>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5;text-align:right;font-weight:600\">1/5</td>\n        <td style=\"padding:6px 10px;border-bottom:1px solid #e5e5e5;color:#555\">Call ends with no part identified, no confirmed stock, no price, no shipping estimate, and no order placed \u2014 every question the customer asked was deflected.</td>\n      </tr></table>\n\n    <h3>What went well</h3>\n    <ul><li><strong>Stayed on the call</strong> \u2014 Despite the customer not having a part number, the agent kept responding to each question rather than cutting the call short.</li><li><strong>Didn't invent an answer</strong> \u2014 The agent avoided guessing at exact stock or price rather than telling the customer something that might be wrong.</li></ul>\n\n    <h3>What to work on</h3>\n    <ul style=\"padding-left:18px\"><li style=\"margin-bottom:10px\">\n        <strong>Offer to look up the part instead of sending the customer away</strong> \u2014 \"2-inch stainless ball valve for a water line\" is enough to search a catalog. Redirecting the customer to do that work themselves loses the sale and the relationship.<br/>\n        <span style=\"color:#b91c1c\">Instead of:</span> \"I can't really guess for you. If you don't have the part number, just check the website.\"<br/>\n        <span style=\"color:#15803d\">Try:</span> \"No problem \u2014 let me pull up 2-inch stainless ball valves for water line service and we'll find the right one together.\"\n      </li><li style=\"margin-bottom:10px\">\n        <strong>Confirm stock, price, and shipping before answering</strong> \u2014 Saying \"probably\" and \"whatever the site says\" gives the customer nothing to act on and makes the company look disorganized.<br/>\n        <span style=\"color:#b91c1c\">Instead of:</span> \"It's whatever the site says, and shipping takes however long it takes. I don't control that.\"<br/>\n        <span style=\"color:#15803d\">Try:</span> \"Let me check right now \u2014 I can give you the exact price and ship date before we hang up.\"\n      </li><li style=\"margin-bottom:10px\">\n        <strong>Don't discourage the customer from buying on the call</strong> \u2014 Telling a ready buyer it's \"faster\" to order online themselves, right after mentioning other calls waiting, reads as wanting to get off the phone rather than close the sale.<br/>\n        <span style=\"color:#b91c1c\">Instead of:</span> \"You can, but honestly, it's faster if you just do it online yourself. Is there anything else? I've got other calls waiting.\"<br/>\n        <span style=\"color:#15803d\">Try:</span> \"Absolutely, I can place that order for you right now \u2014 let's get it done.\"\n      </li></ul>\n\n    <h3>One thing to practice before your next call</h3>\n    <p>Before your next call, practice this response for when a customer doesn't have a part number: offer to look it up with them using what they describe, instead of sending them to find it themselves.</p>\n\n    <h3 style=\"margin-top:28px\">Full transcript</h3>\n    <div style=\"background:#f7f7f7;padding:14px;border-radius:6px;font-size:13px;line-height:1.5\"><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:00] customer:</span> Hi, good morning. I'm calling about a valve from Welsford. I need a 2-inch stainless steel ball valve for a water line.</div><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:07] agent:</span> Yeah. What's the part number?</div><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:09] customer:</span> I don't actually have a part number. I was hoping you could help me figure out which one I need.</div><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:14] agent:</span> I can't really guess for you. If you don't have the part number, just check the website.</div><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:18] customer:</span> Okay. Do you at least know if the 2-inch stainless one is in stock?</div><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:22] agent:</span> Probably. I'd have to go look. Hold on.</div><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:26] customer:</span> Sure, I can wait. And while you're checking, how much is it and how fast can you ship it?</div><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:32] agent:</span> It's whatever the site says, and shipping takes however long it takes. I don't control that.</div><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:37] customer:</span> All right. Can I just place the order with you over the phone?</div><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:41] agent:</span> You can, but honestly, it's faster if you just do it online yourself. Is there anything else? I've got other calls waiting.</div><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:47] customer:</span> No. No, I guess that's it.</div><div style=\"margin-bottom:6px\"><span style=\"color:#888;font-family:monospace\">[0:49] agent:</span> Okay, bye.</div></div>\n\n    <p style=\"color:#999;font-size:12px;margin-top:28px\">Automated coaching from the Call Monitoring & Coaching System. Scored against protocol 2026.1.</p>\n  </div>"
+  }
+}

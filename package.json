@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "build:preview": "tsc -b && node scripts/build-preview.mjs",
     "build:demo": "tsc -b && node scripts/build-demo.mjs",
+    "build:real": "tsc -b && node scripts/build-real.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
