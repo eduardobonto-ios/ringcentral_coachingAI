@@ -1,0 +1,109 @@
+{
+  "turns": [
+    { "start": 0, "speaker": "customer", "text": "Hi, good morning. I'm calling about a valve from Welsford. I need a 2-inch stainless steel ball valve for a water line." },
+    { "start": 7, "speaker": "agent", "text": "Yeah. What's the part number?" },
+    { "start": 9, "speaker": "customer", "text": "I don't actually have a part number. I was hoping you could help me figure out which one I need." },
+    { "start": 14, "speaker": "agent", "text": "I can't really guess for you. If you don't have the part number, just check the website." },
+    { "start": 18, "speaker": "customer", "text": "Okay. Do you at least know if the 2-inch stainless one is in stock?" },
+    { "start": 22, "speaker": "agent", "text": "Probably. I'd have to go look. Hold on." },
+    { "start": 26, "speaker": "customer", "text": "Sure, I can wait. And while you're checking, how much is it and how fast can you ship it?" },
+    { "start": 32, "speaker": "agent", "text": "It's whatever the site says, and shipping takes however long it takes. I don't control that." },
+    { "start": 37, "speaker": "customer", "text": "All right. Can I just place the order with you over the phone?" },
+    { "start": 41, "speaker": "agent", "text": "You can, but honestly, it's faster if you just do it online yourself. Is there anything else? I've got other calls waiting." },
+    { "start": 47, "speaker": "customer", "text": "No. No, I guess that's it." },
+    { "start": 49, "speaker": "agent", "text": "Okay, bye." }
+  ],
+  "analysis": {
+    "rubricVersion": "2026.1",
+    "overallScore": 27,
+    "band": "needs-intervention",
+    "outcome": "unresolved",
+    "scores": [
+      {
+        "key": "empathy",
+        "label": "Empathy",
+        "score": 1,
+        "rationale": "No acknowledgment of the customer's situation at any point. Responses are curt and dismissive rather than helpful, and the agent implies impatience instead of reassurance.",
+        "evidence": [
+          { "t": 14, "quote": "I can't really guess for you." },
+          { "t": 41, "quote": "I've got other calls waiting." }
+        ]
+      },
+      {
+        "key": "communication",
+        "label": "Communication",
+        "score": 2,
+        "rationale": "Answers are understandable but minimal and non-committal — no explanation, no next steps offered, nothing confirmed in concrete terms.",
+        "evidence": [
+          { "t": 32, "quote": "It's whatever the site says, and shipping takes however long it takes. I don't control that." }
+        ]
+      },
+      {
+        "key": "professionalism",
+        "label": "Professionalism",
+        "score": 2,
+        "rationale": "Not overtly hostile, but repeatedly blunt to the point of sounding annoyed, and steers the customer away from doing business over the phone.",
+        "evidence": [
+          { "t": 41, "quote": "You can, but honestly, it's faster if you just do it online yourself." }
+        ]
+      },
+      {
+        "key": "process",
+        "label": "Process Adherence",
+        "score": 1,
+        "rationale": "No attempt to look up the part from the description given (size, material, application). Stock was guessed at ('probably') rather than confirmed before answering.",
+        "evidence": [
+          { "t": 14, "quote": "just check the website." },
+          { "t": 22, "quote": "Probably. I'd have to go look." }
+        ]
+      },
+      {
+        "key": "resolution",
+        "label": "Issue Resolution",
+        "score": 1,
+        "rationale": "Call ends with no part identified, no confirmed stock, no price, no shipping estimate, and no order placed — every question the customer asked was deflected.",
+        "evidence": [
+          { "t": 37, "quote": "Can I just place the order with you over the phone?" },
+          { "t": 47, "quote": "No. No, I guess that's it." }
+        ]
+      }
+    ],
+    "strengths": [
+      {
+        "title": "Stayed on the call",
+        "detail": "Despite the customer not having a part number, the agent kept responding to each question rather than cutting the call short."
+      },
+      {
+        "title": "Didn't invent an answer",
+        "detail": "The agent avoided guessing at exact stock or price rather than telling the customer something that might be wrong."
+      }
+    ],
+    "improvements": [
+      {
+        "title": "Offer to look up the part instead of sending the customer away",
+        "detail": "\"2-inch stainless ball valve for a water line\" is enough to search a catalog. Redirecting the customer to do that work themselves loses the sale and the relationship.",
+        "instead": "I can't really guess for you. If you don't have the part number, just check the website.",
+        "say": "No problem — let me pull up 2-inch stainless ball valves for water line service and we'll find the right one together."
+      },
+      {
+        "title": "Confirm stock, price, and shipping before answering",
+        "detail": "Saying \"probably\" and \"whatever the site says\" gives the customer nothing to act on and makes the company look disorganized.",
+        "instead": "It's whatever the site says, and shipping takes however long it takes. I don't control that.",
+        "say": "Let me check right now — I can give you the exact price and ship date before we hang up."
+      },
+      {
+        "title": "Don't discourage the customer from buying on the call",
+        "detail": "Telling a ready buyer it's \"faster\" to order online themselves, right after mentioning other calls waiting, reads as wanting to get off the phone rather than close the sale.",
+        "instead": "You can, but honestly, it's faster if you just do it online yourself. Is there anything else? I've got other calls waiting.",
+        "say": "Absolutely, I can place that order for you right now — let's get it done."
+      }
+    ],
+    "practiceAction": "Before your next call, practice this response for when a customer doesn't have a part number: offer to look it up with them using what they describe, instead of sending them to find it themselves.",
+    "flags": [
+      "no part lookup performed",
+      "no price or shipping info given",
+      "customer discouraged from ordering by phone",
+      "call ended with issue unresolved"
+    ]
+  }
+}
