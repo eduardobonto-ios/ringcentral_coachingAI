@@ -9,6 +9,7 @@
     "build:preview": "tsc -b && node scripts/build-preview.mjs",
     "build:demo": "tsc -b && node scripts/build-demo.mjs",
     "build:real": "tsc -b && node scripts/build-real.mjs",
+    "build:full": "tsc -b && node scripts/build-full.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },

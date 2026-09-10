@@ -1,0 +1,232 @@
+{
+  "demo-strong-01": {
+    "agent_name": "Priya Anand",
+    "duration_sec": 54,
+    "turns": [
+      {
+        "start": 0.0,
+        "speaker": "customer",
+        "text": "Hi, I've got an industrial pump down and I think I need a new gasket kit for it. Model's a Hartwell three fifty."
+      },
+      {
+        "start": 8.8,
+        "speaker": "agent",
+        "text": "Oh no, a pump down is stressful, especially if it's holding up a job. Let's get you sorted. Do you have the gasket kit part number, or just the pump model?"
+      },
+      {
+        "start": 19.0,
+        "speaker": "customer",
+        "text": "Just the pump model, Hartwell three fifty."
+      },
+      {
+        "start": 22.6,
+        "speaker": "agent",
+        "text": "That's enough, I can look it up. One second. Found it, the kit is nine dollars and twenty cents, and I've got four in stock."
+      },
+      {
+        "start": 31.2,
+        "speaker": "customer",
+        "text": "Great, can you ship it today?"
+      },
+      {
+        "start": 34.0,
+        "speaker": "agent",
+        "text": "Yes, if we get it out in the next hour it'll go out same day, and you'll have tracking in your inbox before end of day."
+      },
+      {
+        "start": 41.5,
+        "speaker": "customer",
+        "text": "Perfect, thank you so much."
+      },
+      {
+        "start": 44.4,
+        "speaker": "agent",
+        "text": "Of course. I'll also email you the install sheet for that kit in case it helps. Anything else?"
+      },
+      {
+        "start": 50.9,
+        "speaker": "customer",
+        "text": "That's it, appreciate the quick help."
+      }
+    ]
+  },
+  "demo-strong-02": {
+    "agent_name": "Marcus Webb",
+    "duration_sec": 42,
+    "turns": [
+      {
+        "start": 0.0,
+        "speaker": "customer",
+        "text": "Hey, I'm placing a bigger order this time, about two hundred half inch brass fittings. Do you do bulk pricing?"
+      },
+      {
+        "start": 7.7,
+        "speaker": "agent",
+        "text": "We do, at that quantity you'd qualify for our contractor tier, twelve percent off list."
+      },
+      {
+        "start": 15.0,
+        "speaker": "customer",
+        "text": "That's good. Can you get me a quote today?"
+      },
+      {
+        "start": 18.1,
+        "speaker": "agent",
+        "text": "Yep, give me the exact part number and I'll have a quote number back to you within the hour."
+      },
+      {
+        "start": 24.8,
+        "speaker": "customer",
+        "text": "It's the same fitting as my last order, should be on file."
+      },
+      {
+        "start": 28.7,
+        "speaker": "agent",
+        "text": "Let me check. Okay, found your account, I'll pull the part from your order history and send the quote over."
+      },
+      {
+        "start": 37.2,
+        "speaker": "customer",
+        "text": "Sounds good, thanks."
+      },
+      {
+        "start": 39.6,
+        "speaker": "agent",
+        "text": "You're welcome, talk soon."
+      }
+    ]
+  },
+  "demo-improve-01": {
+    "agent_name": "Elena Torres",
+    "duration_sec": 33,
+    "turns": [
+      {
+        "start": 0.0,
+        "speaker": "customer",
+        "text": "Do you have the three inch cast iron check valve in stock? Model C V three hundred."
+      },
+      {
+        "start": 5.6,
+        "speaker": "agent",
+        "text": "Let me check. It says low stock."
+      },
+      {
+        "start": 8.9,
+        "speaker": "customer",
+        "text": "Low stock, like how many?"
+      },
+      {
+        "start": 11.4,
+        "speaker": "agent",
+        "text": "I'm not totally sure, the system just says low stock, not an exact number."
+      },
+      {
+        "start": 17.5,
+        "speaker": "customer",
+        "text": "Okay. Well I need at least two. Can you confirm you have two?"
+      },
+      {
+        "start": 21.9,
+        "speaker": "agent",
+        "text": "It should be fine, I'll put in the order and if there's a problem someone will call you."
+      },
+      {
+        "start": 27.7,
+        "speaker": "customer",
+        "text": "That's not super reassuring, but okay, go ahead."
+      },
+      {
+        "start": 31.6,
+        "speaker": "agent",
+        "text": "Alright, order's in."
+      }
+    ]
+  },
+  "demo-improve-02": {
+    "agent_name": "Devon Ashworth",
+    "duration_sec": 31,
+    "turns": [
+      {
+        "start": 0.0,
+        "speaker": "customer",
+        "text": "I got my order today but it's the wrong part. I ordered a two inch elbow fitting and got a straight coupling."
+      },
+      {
+        "start": 7.1,
+        "speaker": "agent",
+        "text": "Okay, sorry about that. You'll want to email our support address with a photo and they can sort out a return."
+      },
+      {
+        "start": 14.5,
+        "speaker": "customer",
+        "text": "Can't you just handle that here on the phone?"
+      },
+      {
+        "start": 17.7,
+        "speaker": "agent",
+        "text": "I can't process returns from this line, it has to go through email."
+      },
+      {
+        "start": 22.5,
+        "speaker": "customer",
+        "text": "That seems like a long way around for your mistake."
+      },
+      {
+        "start": 26.2,
+        "speaker": "agent",
+        "text": "I understand, but that's the process."
+      },
+      {
+        "start": 29.3,
+        "speaker": "customer",
+        "text": "Fine, I'll email them."
+      }
+    ]
+  },
+  "demo-intervention-01": {
+    "agent_name": "Grant Michaels",
+    "duration_sec": 37,
+    "turns": [
+      {
+        "start": 0.0,
+        "speaker": "customer",
+        "text": "This is an emergency, our line's down. I need a four inch gate valve actuator today, not this week."
+      },
+      {
+        "start": 6.8,
+        "speaker": "agent",
+        "text": "Yeah, we don't really do same day."
+      },
+      {
+        "start": 10.6,
+        "speaker": "customer",
+        "text": "This is a plant shutdown, people are standing around not working."
+      },
+      {
+        "start": 14.9,
+        "speaker": "agent",
+        "text": "I hear you, but that's just not how shipping works here."
+      },
+      {
+        "start": 20.3,
+        "speaker": "customer",
+        "text": "Is there any option, expedited freight, will call, anything?"
+      },
+      {
+        "start": 24.8,
+        "speaker": "agent",
+        "text": "You could try calling around to other suppliers, I'm not sure we can help today."
+      },
+      {
+        "start": 32.3,
+        "speaker": "customer",
+        "text": "Wow. Okay, I'll look elsewhere."
+      },
+      {
+        "start": 35.4,
+        "speaker": "agent",
+        "text": "Sorry about that."
+      }
+    ]
+  }
+}
