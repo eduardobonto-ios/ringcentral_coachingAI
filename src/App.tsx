@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, isDemo, mmss, when, type CallSummary, type CallDetail as Detail, type Dimension } from './api';
 import { CallDetail } from './components/CallDetail';
+import logo from './assets/valveXwelsford.png';
 
 const scoreColor = (n: number | null) =>
   n === null ? 'var(--muted)' : n >= 80 ? 'var(--accent)' : n >= 40 ? 'var(--warn)' : 'var(--risk)';
@@ -60,6 +61,18 @@ export default function App() {
     <div className="app">
       <div className="masthead">
         <div>
+          <img
+            src={logo}
+            alt="Welsford x Valveman"
+            style={{
+              display: 'block',
+              height: 44,
+              marginBottom: 10,
+              padding: '8px 12px',
+              background: '#10161a',
+              borderRadius: 8,
+            }}
+          />
           <h1>Coaching Admin</h1>
           <div className="sub">Every call reviewed, and every coaching email sent to an agent</div>
         </div>
