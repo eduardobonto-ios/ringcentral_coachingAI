@@ -66,11 +66,11 @@ export default function App() {
             alt="Welsford x Valveman"
             style={{
               display: 'block',
-              height: 44,
-              marginBottom: 10,
-              padding: '8px 12px',
+              height: 76,
+              marginBottom: 14,
+              padding: '12px 18px',
               background: '#10161a',
-              borderRadius: 8,
+              borderRadius: 10,
             }}
           />
           <h1>Coaching Admin</h1>
