@@ -12,7 +12,7 @@ export function buildCoachingEmail(opts: {
   const { agentName, analysis, turns } = opts;
   const firstName = agentName.split(' ')[0];
 
-  const subject = `Call coaching — ${analysis.overallScore}/100 (${new Date(opts.recordedAt).toLocaleDateString()})`;
+  const subject = `Your coaching notes — ${new Date(opts.recordedAt).toLocaleDateString()}`;
 
   const scoreRows = analysis.scores
     .map((s) => {
@@ -33,7 +33,7 @@ export function buildCoachingEmail(opts: {
     .map(
       (i) => `<li style="margin-bottom:10px">
         <strong>${i.title}</strong> — ${i.detail}<br/>
-        <span style="color:#b91c1c">Instead of:</span> "${i.instead}"<br/>
+        <span style="color:#b91c1c">You said:</span> "${i.instead}"<br/>
         <span style="color:#15803d">Try:</span> "${i.say}"
       </li>`,
     )
@@ -49,24 +49,24 @@ export function buildCoachingEmail(opts: {
   const html = `
   <div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;color:#1a1a1a">
     <h2 style="margin-bottom:0">Hi ${firstName}, here's coaching on your recent call</h2>
-    <p style="color:#555;margin-top:4px">Overall score: <strong style="font-size:18px">${analysis.overallScore}/100</strong> (${analysis.band.replace('-', ' ')})</p>
+    <p style="color:#555;margin-top:4px">A conversation worth revisiting — not a verdict.</p>
 
-    <h3>Scorecard</h3>
-    <table style="border-collapse:collapse;width:100%;font-size:14px">${scoreRows}</table>
-
-    <h3>What went well</h3>
+    <h3>Keep doing this</h3>
     <ul>${strengths}</ul>
 
-    <h3>What to work on</h3>
+    <h3>One opportunity to try next time</h3>
     <ul style="padding-left:18px">${improvements}</ul>
 
-    <h3>One thing to practice before your next call</h3>
+    <h3>Next shift</h3>
     <p>${analysis.practiceAction}</p>
+
+    <h3>Patterns to notice</h3>
+    <table style="border-collapse:collapse;width:100%;font-size:14px">${scoreRows}</table>
 
     <h3 style="margin-top:28px">Full transcript</h3>
     <div style="background:#f7f7f7;padding:14px;border-radius:6px;font-size:13px;line-height:1.5">${transcript}</div>
 
-    <p style="color:#999;font-size:12px;margin-top:28px">Automated coaching from the Call Monitoring & Coaching System. Scored against protocol ${analysis.rubricVersion}.</p>
+    <p style="color:#999;font-size:12px;margin-top:28px">Automated coaching from the Coaching Workspace, using coaching rubric ${analysis.rubricVersion}.</p>
   </div>`;
 
   return { subject, html };
