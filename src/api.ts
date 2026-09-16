@@ -1,3 +1,5 @@
+import { supabase } from './supabaseClient';
+
 export type CallSummary = {
   id: string;
   recorded_at: string;
@@ -73,8 +75,16 @@ type Seed = {
 };
 const seed: Seed | undefined = (globalThis as any).__SEED__;
 
+// Demo mode never calls this (isDemo short-circuits first), so it's fine to always attach an
+// auth header here — no Supabase session just means no header, and the server will 401.
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function get<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: await authHeaders() });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json() as Promise<T>;
 }
@@ -91,22 +101,25 @@ export const api = {
     seed ? Promise.resolve(seed.details[id]) : get<CallDetail>(`/api/calls/${id}`),
   rubric: () =>
     seed ? Promise.resolve(seed.rubric) : get<{ version: string; dimensions: Dimension[] }>('/api/rubric'),
-  emailUrl: (id: string) =>
-    seed
-      ? `data:text/html;charset=utf-8,${encodeURIComponent(seed.emails[id] ?? '')}`
-      : `/api/calls/${id}/email`,
+  // Fetched (not a plain <iframe src>) because the live route needs a Bearer header, which a
+  // src="..." navigation can't send — render the result with <iframe srcDoc>.
+  emailHtml: async (id: string): Promise<string> => {
+    if (seed) return seed.emails[id] ?? '';
+    const res = await fetch(`/api/calls/${id}/email`, { headers: await authHeaders() });
+    return res.ok ? res.text() : '';
+  },
   upload: async (file: File, agentId: string) => {
     if (seed) throw new Error('This is a read-only preview — run the server to process new recordings.');
     const body = new FormData();
     body.append('agentId', agentId);
     body.append('file', file);
-    const res = await fetch('/api/upload', { method: 'POST', body });
+    const res = await fetch('/api/upload', { method: 'POST', body, headers: await authHeaders() });
     if (!res.ok) throw new Error(await res.text());
     return res.json() as Promise<{ callId: string }>;
   },
   analyze: async (id: string) => {
     if (seed) throw new Error('This is a read-only preview — run the server to process new recordings.');
-    const res = await fetch(`/api/calls/${id}/analyze`, { method: 'POST' });
+    const res = await fetch(`/api/calls/${id}/analyze`, { method: 'POST', headers: await authHeaders() });
     if (!res.ok) throw new Error(await res.text());
     return res.json() as Promise<{ status: string }>;
   },

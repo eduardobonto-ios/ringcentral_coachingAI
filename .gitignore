@@ -3,3 +3,7 @@ dist/
 preview.html
 *.tsbuildinfo
 .vercel
+.env
+.env.local
+server/.env
+server/.env.local

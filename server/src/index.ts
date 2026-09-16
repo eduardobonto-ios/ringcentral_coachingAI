@@ -8,6 +8,7 @@ import { DIMENSIONS, RUBRIC_VERSION } from './rubric.js';
 import { processRecording, emailCoaching, type Agent } from './pipeline.js';
 import { analyzeCall } from './coaching.js';
 import { startWeeklyReportCron } from './weeklyReport.js';
+import { requireAuth, canAccessAgentEmail, departmentByEmail } from './auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AUDIO_DIR = path.join(__dirname, '..', 'audio');
@@ -15,19 +16,31 @@ const AUDIO_DIR = path.join(__dirname, '..', 'audio');
 const app = express();
 const upload = multer({ dest: AUDIO_DIR });
 
+// NOTE: recordings are served unauthenticated — the audio player streams straight from here.
+// Locking this down too needs range-request-aware auth (or signed URLs), which is a follow-up.
 app.use('/audio', express.static(AUDIO_DIR));
 
-app.get('/api/calls', (_req, res) => {
-  res.json({ calls: listCallSummaries() });
+app.use('/api', requireAuth);
+
+app.get('/api/calls', async (req, res) => {
+  const all = listCallSummaries() as any[];
+  const user = req.user!;
+  if (user.role === 'admin') return res.json({ calls: all });
+  if (user.position === 'manager') {
+    const depts = await departmentByEmail();
+    return res.json({ calls: all.filter((c) => user.department !== null && depts[c.agent_email] === user.department) });
+  }
+  res.json({ calls: all.filter((c) => c.agent_email === user.email) });
 });
 
 app.get('/api/rubric', (_req, res) => {
   res.json({ version: RUBRIC_VERSION, dimensions: DIMENSIONS });
 });
 
-app.get('/api/calls/:id', (req, res) => {
+app.get('/api/calls/:id', async (req, res) => {
   const row = getCallDetail(req.params.id) as any;
   if (!row) return res.status(404).json({ error: 'not found' });
+  if (!(await canAccessAgentEmail(req.user!, row.agent_email))) return res.status(403).json({ error: 'forbidden' });
   res.json({
     id: row.id,
     recorded_at: row.recorded_at,
@@ -46,7 +59,10 @@ app.get('/api/calls/:id', (req, res) => {
   });
 });
 
-app.get('/api/calls/:id/email', (req, res) => {
+app.get('/api/calls/:id/email', async (req, res) => {
+  const call = getCallDetail(req.params.id) as any;
+  if (!call) return res.status(404).send('No email for this call yet.');
+  if (!(await canAccessAgentEmail(req.user!, call.agent_email))) return res.status(403).send('forbidden');
   const row = getEmailBody(req.params.id);
   if (!row) return res.status(404).send('No email for this call yet.');
   res.type('html').send(row.body_html);
@@ -59,6 +75,7 @@ app.post('/api/calls/:id/analyze', async (req, res) => {
   try {
     const row = getCallDetail(req.params.id) as any;
     if (!row) return res.status(404).send('not found');
+    if (!(await canAccessAgentEmail(req.user!, row.agent_email))) return res.status(403).send('forbidden');
     if (row.analysis_json) return res.json({ status: 'already-analyzed' });
     if (!row.transcript_json) return res.status(409).send('No transcript available yet for this call.');
 

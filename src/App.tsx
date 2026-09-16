@@ -2,10 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo, mmss, when, type CallSummary, type CallDetail as Detail, type Dimension } from './api';
 import { CallDetail } from './components/CallDetail';
 import { DailyCoachingPanel } from './components/DailyCoachingPanel';
+import { Login } from './components/Login';
 import { buildDailyRollup, latestDayKey, summarizeTrend, type DailyRollup } from './dailyRollup';
+import { useAuth } from './useAuth';
 import logo from './assets/valveXwelsford.png';
 
 export default function App() {
+  const { loading: authLoading, session, profile, profileError, viewMode, signOut } = useAuth();
+  const canLoad = isDemo || Boolean(session);
+
   const [calls, setCalls] = useState<CallSummary[]>([]);
   const [dimensions, setDimensions] = useState<Dimension[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -13,7 +18,10 @@ export default function App() {
   const [detailsById, setDetailsById] = useState<Record<string, Detail>>({});
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [role, setRole] = useState<'employee' | 'manager' | 'admin'>('manager');
+  // Demo build only: a cosmetic switcher since there's no login there. Live mode derives the
+  // equivalent role from the signed-in profile (see `role` below).
+  const [cosmeticRole, setCosmeticRole] = useState<'employee' | 'manager' | 'admin'>('manager');
+  const role: 'employee' | 'manager' | 'admin' = isDemo ? cosmeticRole : viewMode === 'staff' ? 'employee' : viewMode;
   const [coachingRequested, setCoachingRequested] = useState(false);
   const [callsPerAgentDay, setCallsPerAgentDay] = useState(8);
   const [averageMinutes, setAverageMinutes] = useState(8);
@@ -35,8 +43,9 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (!canLoad) return;
     void load();
-  }, []);
+  }, [canLoad]);
 
   useEffect(() => {
     if (!selected) return;
@@ -44,7 +53,9 @@ export default function App() {
   }, [selected]);
 
   // Fetched once per call list so the daily-coaching rollup (strengths/opportunities/practice
-  // action) can be aggregated client-side, without a dedicated backend endpoint.
+  // action) can be aggregated client-side, without a dedicated backend endpoint. In live mode
+  // `calls` is already scoped server-side (own calls / department / everyone), so this never
+  // sees more than the signed-in user is allowed to.
   useEffect(() => {
     if (!calls.length) return;
     let cancelled = false;
@@ -87,23 +98,27 @@ export default function App() {
     : role === 'manager'
       ? "Your team's daily coaching view"
       : 'Company-wide settings and access controls';
-  // No auth yet (see README) — "you" for the employee role is a stand-in for whoever's
-  // signed in, resolved to the agent on the most recent call rather than a fixed demo email.
+  // Demo build has no login, so "you" is a stand-in resolved to the most recent call's agent.
+  // Live mode uses the real signed-in profile instead.
   const employeeCall = useMemo(
     () => [...calls].sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())[0] ?? null,
     [calls],
   );
-  const employeeEmail = employeeCall?.agent_email ?? null;
-  const employeeName = employeeCall?.agent_name ?? 'You';
+  const employeeEmail = isDemo ? (employeeCall?.agent_email ?? null) : (profile?.email ?? null);
+  const employeeName = isDemo ? (employeeCall?.agent_name ?? 'You') : (profile?.full_name || profile?.email || 'You');
 
+  // Live mode: /api/calls is already scoped server-side (own calls / department / everyone) —
+  // re-filtering here would be redundant at best and wrong at worst (the client has no way to
+  // know department membership, which is why that scoping happens behind the service-role key).
+  // Demo mode has no backend, so the cosmetic switcher still filters client-side.
   const visibleCalls = useMemo(
-    () => (role === 'employee' ? calls.filter((c) => c.agent_email === employeeEmail) : calls),
+    () => (isDemo && role === 'employee' ? calls.filter((c) => c.agent_email === employeeEmail) : calls),
     [calls, role, employeeEmail],
   );
 
   const visibleDetails = useMemo(() => {
     const all = Object.values(detailsById);
-    return role === 'employee' ? all.filter((d) => d.agent_email === employeeEmail) : all;
+    return isDemo && role === 'employee' ? all.filter((d) => d.agent_email === employeeEmail) : all;
   }, [detailsById, role, employeeEmail]);
 
   // Each agent's own most recent day with calls — not one global date — so one agent's
@@ -123,6 +138,36 @@ export default function App() {
   const teamTrend = useMemo(() => summarizeTrend(rollups), [rollups]);
   const dailyFocusLabel =
     teamTrend === 'strong' ? 'On track' : teamTrend === 'mixed' ? 'Mixed' : teamTrend === 'attention' ? 'Needs focus' : '—';
+
+  const positionLabel = profile
+    ? profile.role === 'admin'
+      ? 'Application Admin'
+      : profile.position === 'manager'
+        ? `Department Manager${profile.department ? ` · ${profile.department}` : ''}`
+        : 'Staff'
+    : '';
+
+  if (!isDemo && authLoading) {
+    return (
+      <div className="app">
+        <div className="empty">Loading…</div>
+      </div>
+    );
+  }
+
+  if (!isDemo && !session) {
+    return <Login />;
+  }
+
+  if (!isDemo && !profile) {
+    return (
+      <div className="app">
+        <div className="panel" style={{ padding: 20, marginTop: 40 }}>
+          {profileError ?? 'Loading your profile…'}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -181,16 +226,22 @@ export default function App() {
       <div className="workspace-bar">
         <div>
           <div className="eyebrow">Viewing as</div>
-          <strong>{role === 'employee' ? employeeName : role === 'manager' ? 'Team manager' : 'Administrator'}</strong>
-          <span className="access-copy">{accessCopy}</span>
+          <strong>{employeeName}</strong>
+          <span className="access-copy">{isDemo ? accessCopy : `${positionLabel} · ${accessCopy}`}</span>
         </div>
-        <div className="role-switcher" aria-label="Choose workspace role">
-          {(['employee', 'manager', 'admin'] as const).map((option) => (
-            <button key={option} className={role === option ? 'selected' : ''} onClick={() => setRole(option)}>
-              {option[0].toUpperCase() + option.slice(1)}
-            </button>
-          ))}
-        </div>
+        {isDemo ? (
+          <div className="role-switcher" aria-label="Choose workspace role (demo only)">
+            {(['employee', 'manager', 'admin'] as const).map((option) => (
+              <button key={option} className={cosmeticRole === option ? 'selected' : ''} onClick={() => setCosmeticRole(option)}>
+                {option[0].toUpperCase() + option.slice(1)}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button className="sign-out" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        )}
       </div>
 
       <div className="stats">

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, audioSrc, isDemo, mmss, when, type CallDetail as Detail, type Dimension } from '../api';
 
 const scoreColor = (n: number) =>
@@ -20,6 +20,21 @@ export function CallDetail({
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const a = call.analysis;
+  const [emailHtml, setEmailHtml] = useState('');
+
+  // The live route needs a Bearer header, which a plain <iframe src> can't send — fetch it
+  // ourselves and render with srcDoc instead.
+  useEffect(() => {
+    setEmailHtml('');
+    if (!call.email) return;
+    let cancelled = false;
+    void api.emailHtml(call.id).then((html) => {
+      if (!cancelled) setEmailHtml(html);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [call.id, call.email]);
 
   const handleCoachMe = async () => {
     setTab('coaching');
@@ -213,7 +228,7 @@ export function CallDetail({
                   To {call.email.to} · {call.email.status}
                   {call.email.sentAt ? ` · ${when(call.email.sentAt)}` : ''}
                 </div>
-                <iframe className="emailframe" title="Coaching email" src={api.emailUrl(call.id)} />
+                <iframe className="emailframe" title="Coaching email" srcDoc={emailHtml} />
               </>
             ) : (
               <div className="empty">No coaching email has been generated for this call yet.</div>
