@@ -6,9 +6,11 @@
 const RUBRIC_VERSION = '2026.1';
 const WEIGHTS = { empathy: 25, communication: 20, professionalism: 15, process: 20, resolution: 20 };
 
+// Each dimension score is 0-5, matching the live rubric (server/src/coaching.ts) — same
+// convention the CallDetail UI assumes when it renders "score/5" bars.
 function overallScore(scores) {
-  const total = scores.reduce((sum, s) => sum + s.score * WEIGHTS[s.key], 0);
-  return Math.round(total / 100);
+  const total = scores.reduce((sum, s) => sum + (s.score / 5) * WEIGHTS[s.key], 0);
+  return Math.round(total);
 }
 
 function bandFor(score) {
@@ -25,11 +27,11 @@ export const EXTRA_CALLS = [
     agent_email: 'priya.anand@example.com',
     outcome: 'resolved',
     scores: [
-      { key: 'empathy', label: 'Empathy', score: 95, rationale: "Immediately names the stress of a pump being down before asking any lookup questions.", evidence: [{ t: 8.8, quote: "Oh no, a pump down is stressful, especially if it's holding up a job. Let's get you sorted." }] },
-      { key: 'communication', label: 'Communication', score: 90, rationale: 'Gives exact price and stock count instead of vague reassurance.', evidence: [{ t: 22.6, quote: 'Found it, the kit is nine dollars and twenty cents, and four in stock.' }] },
-      { key: 'professionalism', label: 'Professionalism', score: 95, rationale: 'Warm and proactive throughout, no wasted motion.', evidence: [{ t: 44.4, quote: "I'll also email you the install sheet for that kit in case it helps." }] },
-      { key: 'process', label: 'Process Adherence', score: 90, rationale: 'Looks up the part correctly, confirms stock, and offers the install sheet unprompted.', evidence: [{ t: 34.0, quote: "Yes, if we get it out in the next hour it'll go out same day." }] },
-      { key: 'resolution', label: 'Issue Resolution', score: 90, rationale: 'Same-day shipping committed on the call; fully resolved.', evidence: [{ t: 34.0, quote: "you'll have tracking in your inbox before end of day" }] },
+      { key: 'empathy', label: 'Empathy', score: 4.75, rationale: "Immediately names the stress of a pump being down before asking any lookup questions.", evidence: [{ t: 8.8, quote: "Oh no, a pump down is stressful, especially if it's holding up a job. Let's get you sorted." }] },
+      { key: 'communication', label: 'Communication', score: 4.5, rationale: 'Gives exact price and stock count instead of vague reassurance.', evidence: [{ t: 22.6, quote: 'Found it, the kit is nine dollars and twenty cents, and four in stock.' }] },
+      { key: 'professionalism', label: 'Professionalism', score: 4.75, rationale: 'Warm and proactive throughout, no wasted motion.', evidence: [{ t: 44.4, quote: "I'll also email you the install sheet for that kit in case it helps." }] },
+      { key: 'process', label: 'Process Adherence', score: 4.5, rationale: 'Looks up the part correctly, confirms stock, and offers the install sheet unprompted.', evidence: [{ t: 34.0, quote: "Yes, if we get it out in the next hour it'll go out same day." }] },
+      { key: 'resolution', label: 'Issue Resolution', score: 4.5, rationale: 'Same-day shipping committed on the call; fully resolved.', evidence: [{ t: 34.0, quote: "you'll have tracking in your inbox before end of day" }] },
     ],
     strengths: [
       { title: 'Opened with empathy', detail: 'Named the stress of a pump being down before jumping into troubleshooting.' },
@@ -48,11 +50,11 @@ export const EXTRA_CALLS = [
     agent_email: 'marcus.webb@example.com',
     outcome: 'resolved',
     scores: [
-      { key: 'empathy', label: 'Empathy', score: 70, rationale: 'Polite and attentive; no distress to defuse so a lower weight here is expected.', evidence: [{ t: 7.7, quote: "We do, at that quantity you'd qualify for our contractor tier, twelve percent off list." }] },
-      { key: 'communication', label: 'Communication', score: 85, rationale: 'States the exact discount and turnaround time.', evidence: [{ t: 18.1, quote: "I'll have a quote number back to you within the hour." }] },
-      { key: 'professionalism', label: 'Professionalism', score: 95, rationale: 'Efficient and courteous throughout.', evidence: [{ t: 28.7, quote: 'Okay, found your account, I\'ll pull the part from your order history.' }] },
-      { key: 'process', label: 'Process Adherence', score: 80, rationale: 'Uses order history instead of re-asking, but never confirms the quote destination.', evidence: [{ t: 28.7, quote: 'send the quote over' }] },
-      { key: 'resolution', label: 'Issue Resolution', score: 85, rationale: 'Clear next step with a firm timeline, though the quote itself was not sent during the call.', evidence: [{ t: 18.1, quote: 'within the hour' }] },
+      { key: 'empathy', label: 'Empathy', score: 3.5, rationale: 'Polite and attentive; no distress to defuse so a lower weight here is expected.', evidence: [{ t: 7.7, quote: "We do, at that quantity you'd qualify for our contractor tier, twelve percent off list." }] },
+      { key: 'communication', label: 'Communication', score: 4.25, rationale: 'States the exact discount and turnaround time.', evidence: [{ t: 18.1, quote: "I'll have a quote number back to you within the hour." }] },
+      { key: 'professionalism', label: 'Professionalism', score: 4.75, rationale: 'Efficient and courteous throughout.', evidence: [{ t: 28.7, quote: 'Okay, found your account, I\'ll pull the part from your order history.' }] },
+      { key: 'process', label: 'Process Adherence', score: 4, rationale: 'Uses order history instead of re-asking, but never confirms the quote destination.', evidence: [{ t: 28.7, quote: 'send the quote over' }] },
+      { key: 'resolution', label: 'Issue Resolution', score: 4.25, rationale: 'Clear next step with a firm timeline, though the quote itself was not sent during the call.', evidence: [{ t: 18.1, quote: 'within the hour' }] },
     ],
     strengths: [
       { title: 'Quoted a concrete discount tier', detail: "Named the exact contractor-tier percentage instead of a vague 'we can work with you'." },
@@ -71,11 +73,11 @@ export const EXTRA_CALLS = [
     agent_email: 'elena.torres@example.com',
     outcome: 'resolved',
     scores: [
-      { key: 'empathy', label: 'Empathy', score: 55, rationale: "Doesn't engage with the customer's hesitation after saying the answer isn't reassuring.", evidence: [{ t: 27.7, quote: "That's not super reassuring, but okay, go ahead." }] },
-      { key: 'communication', label: 'Communication', score: 45, rationale: "Gives a vague answer ('low stock', 'should be fine') instead of a concrete number.", evidence: [{ t: 11.4, quote: "I'm not totally sure, the system just says low stock, not an exact number." }] },
-      { key: 'professionalism', label: 'Professionalism', score: 75, rationale: 'Stays polite even when pushed on the vague answer.', evidence: [{ t: 21.9, quote: "It should be fine, I'll put in the order." }] },
-      { key: 'process', label: 'Process Adherence', score: 50, rationale: 'Places the order without verifying the actual stock count first.', evidence: [{ t: 21.9, quote: "if there's a problem someone will call you" }] },
-      { key: 'resolution', label: 'Issue Resolution', score: 60, rationale: 'Order placed but real uncertainty about fulfillment is left hanging.', evidence: [{ t: 31.6, quote: "Alright, order's in." }] },
+      { key: 'empathy', label: 'Empathy', score: 2.75, rationale: "Doesn't engage with the customer's hesitation after saying the answer isn't reassuring.", evidence: [{ t: 27.7, quote: "That's not super reassuring, but okay, go ahead." }] },
+      { key: 'communication', label: 'Communication', score: 2.25, rationale: "Gives a vague answer ('low stock', 'should be fine') instead of a concrete number.", evidence: [{ t: 11.4, quote: "I'm not totally sure, the system just says low stock, not an exact number." }] },
+      { key: 'professionalism', label: 'Professionalism', score: 3.75, rationale: 'Stays polite even when pushed on the vague answer.', evidence: [{ t: 21.9, quote: "It should be fine, I'll put in the order." }] },
+      { key: 'process', label: 'Process Adherence', score: 2.5, rationale: 'Places the order without verifying the actual stock count first.', evidence: [{ t: 21.9, quote: "if there's a problem someone will call you" }] },
+      { key: 'resolution', label: 'Issue Resolution', score: 3, rationale: 'Order placed but real uncertainty about fulfillment is left hanging.', evidence: [{ t: 31.6, quote: "Alright, order's in." }] },
     ],
     strengths: [
       { title: 'Stayed polite under pushback', detail: "Didn't get defensive when the customer questioned the vague stock answer." },
@@ -94,11 +96,11 @@ export const EXTRA_CALLS = [
     agent_email: 'devon.ashworth@example.com',
     outcome: 'unresolved',
     scores: [
-      { key: 'empathy', label: 'Empathy', score: 40, rationale: "Says 'sorry about that' but never takes ownership of the shipping mistake.", evidence: [{ t: 7.1, quote: 'Okay, sorry about that.' }] },
-      { key: 'communication', label: 'Communication', score: 65, rationale: 'Clear about the return process, at least.', evidence: [{ t: 17.7, quote: "I can't process returns from this line, it has to go through email." }] },
-      { key: 'professionalism', label: 'Professionalism', score: 70, rationale: 'Stays calm despite the customer pushing back on the process.', evidence: [{ t: 26.2, quote: "I understand, but that's the process." }] },
-      { key: 'process', label: 'Process Adherence', score: 45, rationale: "Hides behind 'that's the process' without offering any workaround or escalation.", evidence: [{ t: 17.7, quote: 'it has to go through email' }] },
-      { key: 'resolution', label: 'Issue Resolution', score: 30, rationale: 'Resolves nothing on the call itself; pushes the whole problem to another channel.', evidence: [{ t: 29.3, quote: "Fine, I'll email them." }] },
+      { key: 'empathy', label: 'Empathy', score: 2, rationale: "Says 'sorry about that' but never takes ownership of the shipping mistake.", evidence: [{ t: 7.1, quote: 'Okay, sorry about that.' }] },
+      { key: 'communication', label: 'Communication', score: 3.25, rationale: 'Clear about the return process, at least.', evidence: [{ t: 17.7, quote: "I can't process returns from this line, it has to go through email." }] },
+      { key: 'professionalism', label: 'Professionalism', score: 3.5, rationale: 'Stays calm despite the customer pushing back on the process.', evidence: [{ t: 26.2, quote: "I understand, but that's the process." }] },
+      { key: 'process', label: 'Process Adherence', score: 2.25, rationale: "Hides behind 'that's the process' without offering any workaround or escalation.", evidence: [{ t: 17.7, quote: 'it has to go through email' }] },
+      { key: 'resolution', label: 'Issue Resolution', score: 1.5, rationale: 'Resolves nothing on the call itself; pushes the whole problem to another channel.', evidence: [{ t: 29.3, quote: "Fine, I'll email them." }] },
     ],
     strengths: [
       { title: "Didn't get defensive", detail: 'Stayed even-toned even when the customer pushed back on the process.' },
@@ -117,11 +119,11 @@ export const EXTRA_CALLS = [
     agent_email: 'grant.michaels@example.com',
     outcome: 'lost',
     scores: [
-      { key: 'empathy', label: 'Empathy', score: 15, rationale: "Near-flat response to 'plant shutdown' — never validates the urgency.", evidence: [{ t: 14.9, quote: "I hear you, but that's just not how shipping works here." }] },
-      { key: 'communication', label: 'Communication', score: 30, rationale: 'Vague throughout, never explores what expediting would actually take.', evidence: [{ t: 6.8, quote: "Yeah, we don't really do same day." }] },
-      { key: 'professionalism', label: 'Professionalism', score: 40, rationale: 'Not rude, but checked-out and passive under pressure.', evidence: [{ t: 24.8, quote: "You could try calling around to other suppliers." }] },
-      { key: 'process', label: 'Process Adherence', score: 15, rationale: 'Never checks will-call, local pickup, or expedited freight despite being asked directly.', evidence: [{ t: 20.3, quote: 'Is there any option, expedited freight, will call, anything?' }] },
-      { key: 'resolution', label: 'Issue Resolution', score: 5, rationale: 'Explicitly tells the customer to go elsewhere. Total loss.', evidence: [{ t: 24.8, quote: "I'm not sure we can help today." }] },
+      { key: 'empathy', label: 'Empathy', score: 0.75, rationale: "Near-flat response to 'plant shutdown' — never validates the urgency.", evidence: [{ t: 14.9, quote: "I hear you, but that's just not how shipping works here." }] },
+      { key: 'communication', label: 'Communication', score: 1.5, rationale: 'Vague throughout, never explores what expediting would actually take.', evidence: [{ t: 6.8, quote: "Yeah, we don't really do same day." }] },
+      { key: 'professionalism', label: 'Professionalism', score: 2, rationale: 'Not rude, but checked-out and passive under pressure.', evidence: [{ t: 24.8, quote: "You could try calling around to other suppliers." }] },
+      { key: 'process', label: 'Process Adherence', score: 0.75, rationale: 'Never checks will-call, local pickup, or expedited freight despite being asked directly.', evidence: [{ t: 20.3, quote: 'Is there any option, expedited freight, will call, anything?' }] },
+      { key: 'resolution', label: 'Issue Resolution', score: 0.25, rationale: 'Explicitly tells the customer to go elsewhere. Total loss.', evidence: [{ t: 24.8, quote: "I'm not sure we can help today." }] },
     ],
     strengths: [
       { title: 'Stayed on the line', detail: "Didn't hang up or cut the customer off despite the tense tone." },

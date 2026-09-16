@@ -39,35 +39,39 @@ const TURNS = [
   { start: 47, speaker: 'customer', text: "Alright, I guess that'll have to work. Thanks." },
 ];
 
+// Each dimension score is 0-5, matching the live rubric (server/src/coaching.ts) — same
+// convention the CallDetail UI assumes when it renders "score/5" bars.
 const SCORES = [
   {
-    key: 'empathy', label: 'Empathy', score: 35,
+    key: 'empathy', label: 'Empathy', score: 1.75,
     rationale: "Never acknowledges that a cracked part is holding up the customer's job before moving to logistics.",
     evidence: [{ t: 22, quote: "I need a replacement fast, we've got a job waiting on this." }],
   },
   {
-    key: 'communication', label: 'Communication', score: 60,
+    key: 'communication', label: 'Communication', score: 3,
     rationale: "Confirms the order but gives a vague window (\"this week\") instead of a specific date.",
     evidence: [{ t: 34, quote: "I'll get it into the queue today, should go out this week." }],
   },
   {
-    key: 'professionalism', label: 'Professionalism', score: 75,
+    key: 'professionalism', label: 'Professionalism', score: 3.75,
     rationale: 'Stays courteous and cooperative throughout, no defensiveness under repeated pushback.',
     evidence: [{ t: 42, quote: "I'll flag it as urgent. That's the best I can do from here." }],
   },
   {
-    key: 'process', label: 'Process Adherence', score: 55,
+    key: 'process', label: 'Process Adherence', score: 2.75,
     rationale: 'Looks up the order correctly but never confirms shipping address or reads back tracking before ending the call.',
     evidence: [{ t: 16, quote: 'Sure, one second. Yeah, I see it. Order shipped Tuesday.' }],
   },
   {
-    key: 'resolution', label: 'Issue Resolution', score: 60,
+    key: 'resolution', label: 'Issue Resolution', score: 3,
     rationale: "Agrees to send a replacement but won't commit to an expedited timeline despite being asked twice.",
     evidence: [{ t: 38, quote: 'This week? I really need it sooner than that if possible.' }],
   },
 ];
 
-const overallScore = Math.round(SCORES.reduce((sum, s, i) => sum + s.score * RUBRIC.dimensions[i].weight, 0) / 100);
+const overallScore = Math.round(
+  SCORES.reduce((sum, s, i) => sum + (s.score / 5) * RUBRIC.dimensions[i].weight, 0),
+);
 
 const ANALYSIS = {
   rubricVersion: RUBRIC.version,
