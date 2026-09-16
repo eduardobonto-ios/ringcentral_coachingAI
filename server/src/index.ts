@@ -3,9 +3,10 @@ import express from 'express';
 import multer from 'multer';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { listCallSummaries, getCallDetail, getEmailBody } from './db.js';
+import { listCallSummaries, getCallDetail, getEmailBody, updateCallAnalysis } from './db.js';
 import { DIMENSIONS, RUBRIC_VERSION } from './rubric.js';
-import { processRecording, type Agent } from './pipeline.js';
+import { processRecording, emailCoaching, type Agent } from './pipeline.js';
+import { analyzeCall } from './coaching.js';
 import { startWeeklyReportCron } from './weeklyReport.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -49,6 +50,46 @@ app.get('/api/calls/:id/email', (req, res) => {
   const row = getEmailBody(req.params.id);
   if (!row) return res.status(404).send('No email for this call yet.');
   res.type('html').send(row.body_html);
+});
+
+// On-demand coaching: run AI analysis for a call that was transcribed but never scored
+// (e.g. ANTHROPIC_API_KEY was unset at ingestion, or auto-analysis was deliberately skipped).
+// This is what "Coach me on this call" calls when a call has no analysis yet.
+app.post('/api/calls/:id/analyze', async (req, res) => {
+  try {
+    const row = getCallDetail(req.params.id) as any;
+    if (!row) return res.status(404).send('not found');
+    if (row.analysis_json) return res.json({ status: 'already-analyzed' });
+    if (!row.transcript_json) return res.status(409).send('No transcript available yet for this call.');
+
+    const rawTurns = JSON.parse(row.transcript_json) as { start: number; text: string }[];
+    const segments = rawTurns.map((t) => ({ start: t.start, end: t.start, text: t.text }));
+
+    const { turns, analysis } = await analyzeCall({
+      segments,
+      agentName: row.agent_name,
+      agentRole: row.agent_role,
+    });
+
+    updateCallAnalysis(req.params.id, JSON.stringify(turns), JSON.stringify(analysis), 'analyzed');
+
+    try {
+      await emailCoaching(
+        req.params.id,
+        { id: '', name: row.agent_name, email: row.agent_email, role: row.agent_role },
+        row.recorded_at,
+        turns,
+        analysis,
+      );
+    } catch (e) {
+      console.warn(`[analyze] coaching email failed for ${req.params.id}: ${(e as Error).message}`);
+    }
+
+    res.json({ status: 'analyzed' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).send(String((e as Error).message));
+  }
 });
 
 app.post('/api/upload', upload.single('file'), async (req, res) => {

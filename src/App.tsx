@@ -1,18 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo, mmss, when, type CallSummary, type CallDetail as Detail, type Dimension } from './api';
 import { CallDetail } from './components/CallDetail';
+import { DailyCoachingPanel } from './components/DailyCoachingPanel';
+import { buildDailyRollup, latestDayKey, summarizeTrend, type DailyRollup } from './dailyRollup';
 import logo from './assets/valveXwelsford.png';
-
-const scoreColor = (n: number | null) =>
-  n === null ? 'var(--muted)' : n >= 80 ? 'var(--accent)' : n >= 40 ? 'var(--warn)' : 'var(--risk)';
 
 export default function App() {
   const [calls, setCalls] = useState<CallSummary[]>([]);
   const [dimensions, setDimensions] = useState<Dimension[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [detailsById, setDetailsById] = useState<Record<string, Detail>>({});
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [role, setRole] = useState<'employee' | 'manager' | 'admin'>('manager');
+  const [coachingRequested, setCoachingRequested] = useState(false);
+  const [callsPerAgentDay, setCallsPerAgentDay] = useState(8);
+  const [averageMinutes, setAverageMinutes] = useState(8);
+  const [employees, setEmployees] = useState(12);
+  const [transcriptionRate, setTranscriptionRate] = useState(0.006);
+  const [analysisRate, setAnalysisRate] = useState(0.012);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -36,6 +43,24 @@ export default function App() {
     void api.call(selected).then(setDetail).catch(() => setDetail(null));
   }, [selected]);
 
+  // Fetched once per call list so the daily-coaching rollup (strengths/opportunities/practice
+  // action) can be aggregated client-side, without a dedicated backend endpoint.
+  useEffect(() => {
+    if (!calls.length) return;
+    let cancelled = false;
+    void Promise.all(calls.map((c) => api.call(c.id).catch(() => null))).then((results) => {
+      if (cancelled) return;
+      const map: Record<string, Detail> = {};
+      results.forEach((d, i) => {
+        if (d) map[calls[i].id] = d;
+      });
+      setDetailsById(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [calls]);
+
   const onUpload = async (file: File) => {
     setUploading(true);
     try {
@@ -50,12 +75,54 @@ export default function App() {
     }
   };
 
-  const scored = calls.filter((c) => c.overall_score !== null);
-  const avg = scored.length
-    ? Math.round(scored.reduce((a, c) => a + (c.overall_score ?? 0), 0) / scored.length)
-    : null;
   const sent = calls.filter((c) => c.email_status === 'sent' || c.email_status === 'dry-run').length;
-  const flagged = calls.filter((c) => (c.overall_score ?? 100) < 40).length;
+  const monthlyCalls = callsPerAgentDay * employees * 22;
+  const monthlyMinutes = monthlyCalls * averageMinutes;
+  const transcriptionCost = monthlyMinutes * transcriptionRate;
+  const analysisCost = monthlyCalls * analysisRate;
+  const monthlyCost = transcriptionCost + analysisCost;
+  const currentDay = new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' });
+  const accessCopy = role === 'employee'
+    ? 'Your coaching and personal trends only'
+    : role === 'manager'
+      ? "Your team's daily coaching view"
+      : 'Company-wide settings and access controls';
+  // No auth yet (see README) — "you" for the employee role is a stand-in for whoever's
+  // signed in, resolved to the agent on the most recent call rather than a fixed demo email.
+  const employeeCall = useMemo(
+    () => [...calls].sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())[0] ?? null,
+    [calls],
+  );
+  const employeeEmail = employeeCall?.agent_email ?? null;
+  const employeeName = employeeCall?.agent_name ?? 'You';
+
+  const visibleCalls = useMemo(
+    () => (role === 'employee' ? calls.filter((c) => c.agent_email === employeeEmail) : calls),
+    [calls, role, employeeEmail],
+  );
+
+  const visibleDetails = useMemo(() => {
+    const all = Object.values(detailsById);
+    return role === 'employee' ? all.filter((d) => d.agent_email === employeeEmail) : all;
+  }, [detailsById, role, employeeEmail]);
+
+  // Each agent's own most recent day with calls — not one global date — so one agent's
+  // idle week doesn't blank out another agent's rollup (and vice versa).
+  const rollups = useMemo(() => {
+    const byAgent = new Map<string, { email: string; name: string }>();
+    for (const d of visibleDetails) byAgent.set(d.agent_email, { email: d.agent_email, name: d.agent_name });
+    return [...byAgent.values()]
+      .map(({ email, name }) => {
+        const ownDetails = visibleDetails.filter((d) => d.agent_email === email);
+        const dateKey = latestDayKey(ownDetails);
+        return dateKey ? buildDailyRollup(email, name, dateKey, ownDetails) : null;
+      })
+      .filter((r): r is DailyRollup => r !== null);
+  }, [visibleDetails]);
+
+  const teamTrend = useMemo(() => summarizeTrend(rollups), [rollups]);
+  const dailyFocusLabel =
+    teamTrend === 'strong' ? 'On track' : teamTrend === 'mixed' ? 'Mixed' : teamTrend === 'attention' ? 'Needs focus' : '—';
 
   return (
     <div className="app">
@@ -73,8 +140,8 @@ export default function App() {
               borderRadius: 10,
             }}
           />
-          <h1>Coaching Admin</h1>
-          <div className="sub">Every call reviewed, and every coaching email sent to an agent</div>
+          <h1>Coaching workspace</h1>
+          <div className="sub">A daily view for better conversations, not a scorecard</div>
         </div>
         <div>
           <input
@@ -100,7 +167,7 @@ export default function App() {
               cursor: 'pointer',
             }}
           >
-            {isDemo ? 'Read-only preview' : uploading ? 'Processing…' : 'Upload a recording'}
+            {isDemo ? 'Read-only preview' : uploading ? 'Processing…' : 'Upload recording'}
           </button>
         </div>
       </div>
@@ -111,34 +178,89 @@ export default function App() {
         </div>
       )}
 
-      <div className="stats">
-        <div className="stat">
-          <div className="k">Calls reviewed</div>
-          <div className="v">{calls.length}</div>
+      <div className="workspace-bar">
+        <div>
+          <div className="eyebrow">Viewing as</div>
+          <strong>{role === 'employee' ? employeeName : role === 'manager' ? 'Team manager' : 'Administrator'}</strong>
+          <span className="access-copy">{accessCopy}</span>
         </div>
-        <div className="stat">
-          <div className="k">Coaching sent</div>
-          <div className="v">{sent}</div>
-        </div>
-        <div className="stat">
-          <div className="k">Team average</div>
-          <div className="v" style={{ color: scoreColor(avg) }}>
-            {avg ?? '—'}
-          </div>
-        </div>
-        <div className="stat">
-          <div className="k">Needs intervention</div>
-          <div className="v" style={{ color: flagged ? 'var(--risk)' : 'var(--muted)' }}>
-            {flagged}
-          </div>
+        <div className="role-switcher" aria-label="Choose workspace role">
+          {(['employee', 'manager', 'admin'] as const).map((option) => (
+            <button key={option} className={role === option ? 'selected' : ''} onClick={() => setRole(option)}>
+              {option[0].toUpperCase() + option.slice(1)}
+            </button>
+          ))}
         </div>
       </div>
+
+      <div className="stats">
+        <div className="stat">
+          <div className="k">Today · {currentDay}</div>
+          <div className="v">{visibleCalls.length || '—'}</div>
+          <div className="stat-note">conversations available to coach</div>
+        </div>
+        <div className="stat">
+          <div className="k">Coaching ready</div>
+          <div className="v">{sent}</div>
+          <div className="stat-note">shared with the right person</div>
+        </div>
+        <div className="stat">
+          <div className="k">Daily focus</div>
+          <div className="v">{dailyFocusLabel}</div>
+          <div className="stat-note">small steps worth practicing</div>
+        </div>
+        <div className="stat">
+          <div className="k">Access</div>
+          <div className="v access-stat">{role === 'admin' ? 'Full' : role === 'manager' ? 'Team' : 'Mine'}</div>
+          <div className="stat-note">sensitive data boundary</div>
+        </div>
+      </div>
+
+      <section className="daily-banner">
+        <div>
+          <div className="eyebrow">Daily coaching rhythm</div>
+          <h2>Notice patterns across the day, then choose one next step.</h2>
+          <p>Individual calls are evidence for coaching, not a verdict. Employees can request their own view and revisit any conversation.</p>
+        </div>
+        <button className="primary-action" onClick={() => setCoachingRequested((v) => !v)}>
+          {coachingRequested ? 'Hide coaching view' : 'Request coaching'}
+        </button>
+      </section>
+
+      {coachingRequested && <DailyCoachingPanel rollups={rollups} showAgentName={role !== 'employee'} />}
+
+      <section className="cost-panel panel">
+        <div className="cost-intro">
+          <div className="eyebrow">Before automatic transcription</div>
+          <h2>Model the monthly cost first.</h2>
+          <p>These estimates make the tradeoff visible. A lower-cost rollout could sample calls, transcribe on request, or analyze a daily set instead of every recording.</p>
+        </div>
+        <div className="cost-fields">
+          <label>Calls / agent / day<input type="number" min="0" value={callsPerAgentDay} onChange={(e) => setCallsPerAgentDay(Number(e.target.value))} /></label>
+          <label>Average minutes<input type="number" min="1" value={averageMinutes} onChange={(e) => setAverageMinutes(Number(e.target.value))} /></label>
+          <label>Employees / agents<input type="number" min="1" value={employees} onChange={(e) => setEmployees(Number(e.target.value))} /></label>
+          <label>Transcription $ / min<input type="number" min="0" step="0.001" value={transcriptionRate} onChange={(e) => setTranscriptionRate(Number(e.target.value))} /></label>
+          <label>AI analysis $ / call<input type="number" min="0" step="0.001" value={analysisRate} onChange={(e) => setAnalysisRate(Number(e.target.value))} /></label>
+        </div>
+        <div className="cost-result">
+          <div><span>Monthly calls</span><strong>{monthlyCalls.toLocaleString()}</strong></div>
+          <div><span>Transcription volume</span><strong>{monthlyMinutes.toLocaleString()} min</strong></div>
+          <div><span>Transcription</span><strong>${transcriptionCost.toFixed(2)}</strong></div>
+          <div><span>AI analysis</span><strong>${analysisCost.toFixed(2)}</strong></div>
+          <div className="total"><span>Estimated monthly total</span><strong>${monthlyCost.toFixed(2)}</strong></div>
+        </div>
+        <div className="cost-note">
+          Defaults: OpenAI Whisper API ($0.006/min) and Claude Sonnet 5 (~2K input / ~750 output tokens per structured
+          review, at $2/$10 per 1M tokens). Planning estimate only — confirm current vendor pricing, taxes, audio
+          storage, and retention costs before committing.
+        </div>
+      </section>
 
       <div className="split">
         <div className="panel">
           <header>
-            <span>Calls</span>
-            <span style={{ fontWeight: 400, letterSpacing: 0, textTransform: 'none' }}>worst first</span>
+            <span>Conversations</span>
+            <span style={{ fontWeight: 400, letterSpacing: 0, textTransform: 'none' }}>recent first</span>
           </header>
           {calls.length === 0 ? (
             <div className="empty">
@@ -146,14 +268,14 @@ export default function App() {
             </div>
           ) : (
             <ul className="calls">
-              {[...calls]
-                .sort((a, b) => (a.overall_score ?? 999) - (b.overall_score ?? 999))
+              {[...visibleCalls]
+                .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
                 .map((c) => (
                   <li key={c.id}>
                     <button aria-current={selected === c.id} onClick={() => setSelected(c.id)}>
                       <span className="who">{c.agent_name}</span>
-                      <span className="score" style={{ color: scoreColor(c.overall_score) }}>
-                        {c.overall_score ?? '—'}
+                      <span className="score" style={{ color: 'var(--accent)' }}>
+                        {c.overall_score !== null ? 'Ready' : 'Pending'}
                       </span>
                       <span className="meta">
                         {when(c.recorded_at)} · {mmss(c.duration_sec)} ·{' '}
@@ -169,7 +291,16 @@ export default function App() {
         </div>
 
         {detail ? (
-          <CallDetail call={detail} dimensions={dimensions} />
+          <CallDetail
+            call={detail}
+            dimensions={dimensions}
+            onCoach={() => setCoachingRequested(true)}
+            onAnalyzed={async () => {
+              await load();
+              const fresh = await api.call(detail.id).catch(() => null);
+              if (fresh) setDetail(fresh);
+            }}
+          />
         ) : (
           <div className="panel">
             <div className="empty">Select a call to see its coaching.</div>

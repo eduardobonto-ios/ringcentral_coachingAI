@@ -102,8 +102,13 @@ export function insertCall(row: {
   ).run({ ...row, created_at: new Date().toISOString() });
 }
 
-export function updateCallAnalysis(id: string, analysisJson: string, status: string) {
-  db.prepare(`UPDATE calls SET analysis_json = ?, status = ? WHERE id = ?`).run(analysisJson, status, id);
+export function updateCallAnalysis(id: string, transcriptJson: string, analysisJson: string, status: string) {
+  db.prepare(`UPDATE calls SET transcript_json = ?, analysis_json = ?, status = ? WHERE id = ?`).run(
+    transcriptJson,
+    analysisJson,
+    status,
+    id,
+  );
 }
 
 export function upsertEmail(row: {

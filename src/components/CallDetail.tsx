@@ -1,13 +1,45 @@
 import { useMemo, useRef, useState } from 'react';
-import { api, audioSrc, mmss, when, type CallDetail as Detail, type Dimension } from '../api';
+import { api, audioSrc, isDemo, mmss, when, type CallDetail as Detail, type Dimension } from '../api';
 
 const scoreColor = (n: number) =>
   n >= 4 ? 'var(--accent)' : n >= 2 ? 'var(--warn)' : 'var(--risk)';
 
-export function CallDetail({ call, dimensions }: { call: Detail; dimensions: Dimension[] }) {
+export function CallDetail({
+  call,
+  dimensions,
+  onCoach,
+  onAnalyzed,
+}: {
+  call: Detail;
+  dimensions: Dimension[];
+  onCoach: () => void;
+  onAnalyzed: () => void | Promise<void>;
+}) {
   const [tab, setTab] = useState<'coaching' | 'transcript' | 'email'>('coaching');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const a = call.analysis;
+
+  const handleCoachMe = async () => {
+    setTab('coaching');
+    onCoach();
+    if (a) return;
+    if (isDemo) {
+      setAnalyzeError('This preview call has no analysis yet — run the server to process it.');
+      return;
+    }
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      await api.analyze(call.id);
+      await onAnalyzed();
+    } catch (e) {
+      setAnalyzeError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const label = useMemo(
     () => (key: string) => dimensions.find((d) => d.key === key)?.label ?? key,
@@ -29,11 +61,8 @@ export function CallDetail({ call, dimensions }: { call: Detail; dimensions: Dim
       <div className="panel">
         <div className="detail-head">
           <div>
-            <div className="bigscore" style={{ color: a ? scoreColor(a.overallScore / 20) : 'var(--muted)' }}>
-              {a?.overallScore ?? '—'}
-              <small>/100</small>
-            </div>
-            {a && <div className="band" style={{ color: scoreColor(a.overallScore / 20) }}>{a.band}</div>}
+            <div className="coaching-status">{a ? 'Coaching ready' : 'Analysis pending'}</div>
+            <div className="detail-title">A useful conversation to revisit</div>
             <div style={{ marginTop: 8, fontSize: 13, color: 'var(--muted)' }}>
               {call.agent_name} · {call.agent_role}
               <br />
@@ -43,6 +72,12 @@ export function CallDetail({ call, dimensions }: { call: Detail; dimensions: Dim
           <div style={{ flex: '1 1 260px', minWidth: 240 }}>
             {a?.outcome && <div className="outcome">{a.outcome}</div>}
             <audio ref={audio} controls preload="metadata" src={audioSrc(call)} />
+            <button className="primary-action call-action" onClick={handleCoachMe} disabled={analyzing}>
+              {analyzing ? 'Analyzing…' : a ? 'Coach me on this call' : 'Get coaching for this call'}
+            </button>
+            {analyzeError && (
+              <div style={{ fontSize: 12, color: 'var(--risk)', marginTop: 6 }}>{analyzeError}</div>
+            )}
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
               {call.email
                 ? `Coaching email ${call.email.status === 'sent' ? 'sent to' : 'prepared for'} ${call.email.to}`
@@ -75,7 +110,7 @@ export function CallDetail({ call, dimensions }: { call: Detail; dimensions: Dim
             </div>
 
             <div className="section" style={{ borderTop: '1px solid var(--line)' }}>
-              <h3>What to change</h3>
+                <h3>One opportunity to try next time</h3>
               {a.improvements.map((m, i) => (
                 <div className="improve" key={m.title}>
                   <h4>
@@ -98,7 +133,7 @@ export function CallDetail({ call, dimensions }: { call: Detail; dimensions: Dim
 
             <div className="section" style={{ borderTop: '1px solid var(--line)' }}>
               <h3>
-                Score by area <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· rubric {a.rubricVersion}</span>
+                Patterns to notice <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· coaching rubric {a.rubricVersion}</span>
               </h3>
               <div className="bars">
                 {a.scores.map((s) => (

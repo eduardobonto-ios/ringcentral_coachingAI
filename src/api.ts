@@ -104,6 +104,12 @@ export const api = {
     if (!res.ok) throw new Error(await res.text());
     return res.json() as Promise<{ callId: string }>;
   },
+  analyze: async (id: string) => {
+    if (seed) throw new Error('This is a read-only preview — run the server to process new recordings.');
+    const res = await fetch(`/api/calls/${id}/analyze`, { method: 'POST' });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json() as Promise<{ status: string }>;
+  },
 };
 
 export const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
