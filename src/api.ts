@@ -40,6 +40,7 @@ export type CallDetail = {
   duration_sec: number;
   status: string;
   audio_path: string;
+  audio_url: string;
   agent_name: string;
   agent_email: string;
   agent_role: string;
@@ -91,8 +92,8 @@ async function get<T>(url: string): Promise<T> {
 
 export const isDemo = !!seed;
 
-export function audioSrc(call: { id: string; audio_path: string }): string {
-  return seed?.audio?.[call.id] ?? `/audio/${call.audio_path.split('/').pop()}`;
+export function audioSrc(call: { id: string; audio_url: string }): string {
+  return seed?.audio?.[call.id] ?? call.audio_url;
 }
 
 export const api = {
@@ -108,10 +109,9 @@ export const api = {
     const res = await fetch(`/api/calls/${id}/email`, { headers: await authHeaders() });
     return res.ok ? res.text() : '';
   },
-  upload: async (file: File, agentId: string) => {
+  upload: async (file: File) => {
     if (seed) throw new Error('This is a read-only preview — run the server to process new recordings.');
     const body = new FormData();
-    body.append('agentId', agentId);
     body.append('file', file);
     const res = await fetch('/api/upload', { method: 'POST', body, headers: await authHeaders() });
     if (!res.ok) throw new Error(await res.text());

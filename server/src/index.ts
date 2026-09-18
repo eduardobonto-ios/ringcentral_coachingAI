@@ -9,6 +9,7 @@ import { processRecording, emailCoaching, type Agent } from './pipeline.js';
 import { analyzeCall } from './coaching.js';
 import { startWeeklyReportCron } from './weeklyReport.js';
 import { requireAuth, canAccessAgentEmail, departmentByEmail } from './auth.js';
+import { signedAudioUrl, verifyAudioToken } from './audioToken.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AUDIO_DIR = path.join(__dirname, '..', 'audio');
@@ -16,8 +17,16 @@ const AUDIO_DIR = path.join(__dirname, '..', 'audio');
 const app = express();
 const upload = multer({ dest: AUDIO_DIR });
 
-// NOTE: recordings are served unauthenticated — the audio player streams straight from here.
-// Locking this down too needs range-request-aware auth (or signed URLs), which is a follow-up.
+// Recordings need the same RBAC as /api, but the native <audio> element can't send a Bearer
+// header — so this checks a short-lived signed token (issued per-call by GET /api/calls/:id,
+// only after that route's own canAccessAgentEmail check) instead of serving the folder openly.
+app.use('/audio', (req, res, next) => {
+  const filename = decodeURIComponent(req.path.replace(/^\/+/, ''));
+  if (!verifyAudioToken(filename, req.query.exp, req.query.sig)) {
+    return res.status(401).send('Missing or expired audio token.');
+  }
+  next();
+});
 app.use('/audio', express.static(AUDIO_DIR));
 
 app.use('/api', requireAuth);
@@ -47,6 +56,7 @@ app.get('/api/calls/:id', async (req, res) => {
     duration_sec: row.duration_sec,
     status: row.status,
     audio_path: row.audio_path,
+    audio_url: signedAudioUrl(row.audio_path),
     agent_name: row.agent_name,
     agent_email: row.agent_email,
     agent_role: row.agent_role,
@@ -112,14 +122,14 @@ app.post('/api/calls/:id/analyze', async (req, res) => {
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
-    const agentId = req.body.agentId as string;
     if (!file) return res.status(400).json({ error: 'file is required' });
 
-    // TODO: replace with a real agent directory lookup once one exists.
+    // Manual upload always attributes the call to whoever is signed in and uploading it — there's
+    // no agent picker yet, so uploading on someone else's behalf isn't supported.
     const agent: Agent = {
-      id: agentId || 'agent-001',
-      name: 'Sample Agent',
-      email: process.env.MANAGER_EMAIL || 'agent@example.com',
+      id: req.user!.id,
+      name: req.user!.fullName || req.user!.email,
+      email: req.user!.email,
       role: 'Customer Service Rep',
     };
 

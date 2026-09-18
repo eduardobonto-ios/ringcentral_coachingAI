@@ -75,7 +75,7 @@ export default function App() {
   const onUpload = async (file: File) => {
     setUploading(true);
     try {
-      const { callId } = await api.upload(file, 'agent-001');
+      const { callId } = await api.upload(file);
       await load();
       setSelected(callId);
     } catch (e) {
@@ -314,9 +314,7 @@ export default function App() {
             <span style={{ fontWeight: 400, letterSpacing: 0, textTransform: 'none' }}>recent first</span>
           </header>
           {calls.length === 0 ? (
-            <div className="empty">
-              Nothing yet. Drop an MP3 into the <span className="mono">inbox/</span> folder, or upload one above.
-            </div>
+            <div className="empty">Nothing yet. Upload a recording above to get started.</div>
           ) : (
             <ul className="calls">
               {[...visibleCalls]

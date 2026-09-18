@@ -7,6 +7,7 @@ export type Position = 'manager' | 'staff';
 export type AuthedUser = {
   id: string;
   email: string;
+  fullName: string | null;
   role: AccessRole;
   position: Position;
   department: string | null;
@@ -34,7 +35,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   const { data: profile, error: profileErr } = await supabaseAdmin
     .from('profiles')
-    .select('email, role, position, department')
+    .select('email, full_name, role, position, department')
     .eq('id', userData.user.id)
     .single();
   if (profileErr || !profile) return res.status(403).send('No profile is set up for this account yet.');
@@ -42,6 +43,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   req.user = {
     id: userData.user.id,
     email: profile.email,
+    fullName: profile.full_name,
     role: profile.role,
     position: profile.position,
     department: profile.department,
