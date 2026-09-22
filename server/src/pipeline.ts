@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { insertCall, upsertEmail, upsertAgent } from './db.js';
 import { transcribe } from './transcribe.js';
+import { uploadRecording } from './storage.js';
 import { analyzeCall, type Analysis, type Turn } from './coaching.js';
 import { buildCoachingEmail } from './emailTemplate.js';
 import { sendEmail } from './email.js';
@@ -31,28 +32,32 @@ export async function processRecording(opts: {
    *  suppresses; omitted means "follow the switch". */
   sendEmail?: boolean;
 }): Promise<{ callId: string }> {
-  upsertAgent(opts.agent);
+  await upsertAgent(opts.agent);
   const callId = randomUUID();
   const raw = await transcribe(opts.audioPath);
 
+  // The RingCentral sync uploads before calling in; a manual upload arrives as a local temp
+  // file and still needs storing. upsert:true makes the double-call harmless.
+  await uploadRecording(opts.audioPath, opts.audioFilename);
+
   let status = 'needs-analysis';
-  let analysisJson: string | null = null;
+  let analysis: Analysis | null = null;
   let turnsForDb: Turn[] = raw.segments.map((s) => ({ start: s.start, speaker: 'agent', text: s.text }));
 
   try {
-    const { turns, analysis } = await analyzeCall({
+    const { turns, analysis: result } = await analyzeCall({
       segments: raw.segments,
       agentName: opts.agent.name,
       agentRole: opts.agent.role,
     });
     turnsForDb = turns;
-    analysisJson = JSON.stringify(analysis);
+    analysis = result;
     status = 'analyzed';
   } catch (e) {
     console.warn(`[pipeline] skipping AI analysis for ${callId}: ${(e as Error).message}`);
   }
 
-  insertCall({
+  await insertCall({
     id: callId,
     recorded_at: opts.recordedAt,
     duration_sec: Math.round(raw.duration),
@@ -62,13 +67,13 @@ export async function processRecording(opts: {
     agent_id: opts.agent.id,
     audio_path: opts.audioFilename,
     engine: 'faster-whisper/small.en',
-    transcript_json: JSON.stringify(turnsForDb),
-    analysis_json: analysisJson,
+    transcript_json: turnsForDb,
+    analysis_json: analysis,
     external_id: opts.externalId ?? null,
   });
 
-  if (analysisJson && (opts.sendEmail ?? coachingEmailsEnabled())) {
-    await emailCoaching(callId, opts.agent, opts.recordedAt, turnsForDb, JSON.parse(analysisJson));
+  if (analysis && (opts.sendEmail ?? coachingEmailsEnabled())) {
+    await emailCoaching(callId, opts.agent, opts.recordedAt, turnsForDb, analysis);
   }
 
   return { callId };
@@ -77,7 +82,7 @@ export async function processRecording(opts: {
 export async function emailCoaching(callId: string, agent: Agent, recordedAt: string, turns: Turn[], analysis: Analysis) {
   const { subject, html } = buildCoachingEmail({ agentName: agent.name, recordedAt, turns, analysis });
   const result = await sendEmail({ to: agent.email, subject, html });
-  upsertEmail({
+  await upsertEmail({
     call_id: callId,
     status: result.ok ? 'sent' : 'failed',
     to_email: agent.email,

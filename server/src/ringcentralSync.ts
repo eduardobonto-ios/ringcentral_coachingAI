@@ -10,6 +10,7 @@ import cron from 'node-cron';
 import { hasExternalCall } from './db.js';
 import { processRecording } from './pipeline.js';
 import { ringCentralConfigured, fetchExtensionsCached, fetchCallLog, downloadRecording } from './ringcentral.js';
+import { uploadRecording } from './storage.js';
 import {
   agentExtensionId,
   isCoachable,
@@ -79,7 +80,7 @@ export async function syncRingCentral(
     }
 
     const externalId = externalIdOf(record);
-    if (hasExternalCall(externalId)) {
+    if (await hasExternalCall(externalId)) {
       bump(result.skipped, 'already-ingested');
       continue;
     }
@@ -109,6 +110,7 @@ export async function syncRingCentral(
 
     try {
       await downloadRecording(record.recording!.contentUri, audioPath);
+      await uploadRecording(audioPath, filename);
       await processRecording({
         audioPath,
         audioFilename: filename,
@@ -119,6 +121,9 @@ export async function syncRingCentral(
         externalId,
         sendEmail: opts.sendEmail,
       });
+      // The bucket is the system of record now; the local file was only a staging area for
+      // transcription, which needs a real file on disk.
+      fs.rmSync(audioPath, { force: true });
       result.ingested += 1;
       console.log(`[rc-sync] ingested ${result.ingested}${opts.limit ? `/${opts.limit}` : ''} — ${extension.email} (${record.duration}s)`);
     } catch (e) {

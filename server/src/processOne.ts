@@ -14,7 +14,7 @@ async function main() {
   if (!audioPathArg) throw new Error('usage: process <audio_path> <agent_name> <agent_email> <agent_role> [manual_analysis.json]');
 
   const agent: Agent = { id: 'agent-001', name, email, role };
-  upsertAgent(agent);
+  await upsertAgent(agent);
 
   const destName = `${Date.now()}-${path.basename(audioPathArg)}`;
   const destPath = path.join(new URL('../audio/', import.meta.url).pathname, destName);
@@ -39,7 +39,7 @@ async function main() {
   }
 
   const callId = randomUUID();
-  insertCall({
+  await insertCall({
     id: callId,
     recorded_at: new Date().toISOString(),
     duration_sec: Math.round(raw.duration),
@@ -49,8 +49,8 @@ async function main() {
     agent_id: agent.id,
     audio_path: destName,
     engine: 'faster-whisper/small.en',
-    transcript_json: JSON.stringify(turns),
-    analysis_json: JSON.stringify(analysis),
+    transcript_json: turns,
+    analysis_json: analysis,
   });
 
   console.log(`Stored call ${callId}, overall score ${analysis.overallScore}. Sending coaching email to ${email}...`);

@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { coachingEmailsEnabled } from './pipeline.js';
-import { db } from './db.js';
+import { listRecentAnalyses } from './db.js';
 import { sendEmail } from './email.js';
 
 type AgentAnalysis = {
@@ -90,20 +90,11 @@ export async function sendWeeklyReport(): Promise<{ ok: boolean; error?: string 
   const managerEmail = process.env.MANAGER_EMAIL;
   if (!managerEmail) return { ok: false, error: 'MANAGER_EMAIL not set' };
 
-  const raw = db
-    .prepare(
-      `SELECT a.name AS agent_name, c.analysis_json
-       FROM calls c
-       JOIN agents a ON a.id = c.agent_id
-       WHERE c.recorded_at >= datetime('now', '-7 days')
-         AND c.analysis_json IS NOT NULL
-       ORDER BY a.name`,
-    )
-    .all() as { agent_name: string; analysis_json: string }[];
+  const raw = await listRecentAnalyses(7);
 
   const byAgent = new Map<string, AgentAnalysis[]>();
   for (const row of raw) {
-    const analysis = JSON.parse(row.analysis_json) as AgentAnalysis;
+    const analysis = row.analysis_json as AgentAnalysis;
     const list = byAgent.get(row.agent_name) ?? [];
     list.push(analysis);
     byAgent.set(row.agent_name, list);

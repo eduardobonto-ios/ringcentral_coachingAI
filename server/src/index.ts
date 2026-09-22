@@ -10,7 +10,8 @@ import { analyzeCall } from './coaching.js';
 import { startWeeklyReportCron } from './weeklyReport.js';
 import { startRingCentralSyncCron } from './ringcentralSync.js';
 import { requireAuth, canAccessAgentEmail, departmentByEmail } from './auth.js';
-import { signedAudioUrl, verifyAudioToken } from './audioToken.js';
+import { verifyAudioToken } from './audioToken.js';
+import { signedRecordingUrl } from './storage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AUDIO_DIR = path.join(__dirname, '..', 'audio');
@@ -33,7 +34,7 @@ app.use('/audio', express.static(AUDIO_DIR));
 app.use('/api', requireAuth);
 
 app.get('/api/calls', async (req, res) => {
-  const all = listCallSummaries() as any[];
+  const all = (await listCallSummaries()) as any[];
   const user = req.user!;
   if (user.role === 'admin') return res.json({ calls: all });
   if (user.position === 'manager') {
@@ -48,7 +49,7 @@ app.get('/api/rubric', (_req, res) => {
 });
 
 app.get('/api/calls/:id', async (req, res) => {
-  const row = getCallDetail(req.params.id) as any;
+  const row = (await getCallDetail(req.params.id)) as any;
   if (!row) return res.status(404).json({ error: 'not found' });
   if (!(await canAccessAgentEmail(req.user!, row.agent_email))) return res.status(403).json({ error: 'forbidden' });
   res.json({
@@ -57,13 +58,13 @@ app.get('/api/calls/:id', async (req, res) => {
     duration_sec: row.duration_sec,
     status: row.status,
     audio_path: row.audio_path,
-    audio_url: signedAudioUrl(row.audio_path),
+    audio_url: await signedRecordingUrl(row.audio_path),
     agent_name: row.agent_name,
     agent_email: row.agent_email,
     agent_role: row.agent_role,
     engine: row.engine,
-    turns: row.transcript_json ? JSON.parse(row.transcript_json) : [],
-    analysis: row.analysis_json ? JSON.parse(row.analysis_json) : null,
+    turns: row.transcript_json ?? [],
+    analysis: row.analysis_json ?? null,
     email: row.email_status
       ? { status: row.email_status, to: row.to_email, subject: row.email_subject, sentAt: row.email_sent_at }
       : null,
@@ -71,10 +72,10 @@ app.get('/api/calls/:id', async (req, res) => {
 });
 
 app.get('/api/calls/:id/email', async (req, res) => {
-  const call = getCallDetail(req.params.id) as any;
+  const call = (await getCallDetail(req.params.id)) as any;
   if (!call) return res.status(404).send('No email for this call yet.');
   if (!(await canAccessAgentEmail(req.user!, call.agent_email))) return res.status(403).send('forbidden');
-  const row = getEmailBody(req.params.id);
+  const row = await getEmailBody(req.params.id);
   if (!row) return res.status(404).send('No email for this call yet.');
   res.type('html').send(row.body_html);
 });
@@ -84,13 +85,13 @@ app.get('/api/calls/:id/email', async (req, res) => {
 // This is what "Coach me on this call" calls when a call has no analysis yet.
 app.post('/api/calls/:id/analyze', async (req, res) => {
   try {
-    const row = getCallDetail(req.params.id) as any;
+    const row = (await getCallDetail(req.params.id)) as any;
     if (!row) return res.status(404).send('not found');
     if (!(await canAccessAgentEmail(req.user!, row.agent_email))) return res.status(403).send('forbidden');
     if (row.analysis_json) return res.json({ status: 'already-analyzed' });
     if (!row.transcript_json) return res.status(409).send('No transcript available yet for this call.');
 
-    const rawTurns = JSON.parse(row.transcript_json) as { start: number; text: string }[];
+    const rawTurns = row.transcript_json as { start: number; text: string }[];
     const segments = rawTurns.map((t) => ({ start: t.start, end: t.start, text: t.text }));
 
     const { turns, analysis } = await analyzeCall({
@@ -99,7 +100,7 @@ app.post('/api/calls/:id/analyze', async (req, res) => {
       agentRole: row.agent_role,
     });
 
-    updateCallAnalysis(req.params.id, JSON.stringify(turns), JSON.stringify(analysis), 'analyzed');
+    await updateCallAnalysis(req.params.id, turns, analysis, 'analyzed');
 
     // Only mail an agent coaching they asked for themselves. An admin or manager reading
     // someone else's call is reviewing it, not requesting feedback on their behalf — and this

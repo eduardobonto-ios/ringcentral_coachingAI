@@ -1,100 +1,118 @@
-import Database from 'better-sqlite3';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+// Call, agent and coaching storage — Supabase Postgres.
+//
+// Replaces the previous better-sqlite3 database. SQLite tied the whole app to one machine's
+// filesystem, which made hosting impossible; the data now lives in the same Supabase project
+// that already holds auth, and travels unchanged when the app moves from Vercel to Azure.
+//
+// Two consequences worth knowing when reading call sites:
+//   * every function here is async now, where the SQLite ones were synchronous;
+//   * transcript_json / analysis_json are real `jsonb` columns, so they come back as objects.
+//     Callers no longer JSON.parse them, and no longer stringify on the way in.
+//
+// All access uses the service-role key, which bypasses RLS by design. Per-user scoping is
+// applied above this layer in auth.ts / index.ts, exactly as it was with SQLite.
+import { supabaseAdmin, supabaseConfigured } from './supabaseClient.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const db = new Database(path.join(__dirname, '..', 'data', 'coaching.db'));
-db.pragma('journal_mode = WAL');
+export type Turn = { start: number; speaker: string; text: string };
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS agents (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    role TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS calls (
-    id TEXT PRIMARY KEY,
-    recorded_at TEXT NOT NULL,
-    duration_sec INTEGER NOT NULL,
-    status TEXT NOT NULL,             -- uploaded | transcribed | needs-analysis | analyzed
-    source TEXT NOT NULL,             -- manual-upload | ringcentral
-    direction TEXT NOT NULL,          -- inbound | outbound | unknown
-    agent_id TEXT NOT NULL REFERENCES agents(id),
-    audio_path TEXT NOT NULL,
-    engine TEXT,                      -- transcription engine used
-    transcript_json TEXT,             -- Turn[]
-    analysis_json TEXT,               -- CallDetail['analysis']
-    external_id TEXT,                 -- rc:<recordingId> for RingCentral-sourced calls; NULL for uploads
-    created_at TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS emails (
-    call_id TEXT PRIMARY KEY REFERENCES calls(id),
-    status TEXT NOT NULL,             -- sent | dry-run | failed
-    to_email TEXT NOT NULL,
-    subject TEXT NOT NULL,
-    body_html TEXT NOT NULL,
-    sent_at TEXT,
-    error TEXT
-  );
-`);
-
-// calls.external_id arrived with RingCentral ingestion, so the CREATE TABLE IF NOT EXISTS above
-// is a no-op on any database that already existed — add it explicitly.
-const callColumns = db.prepare(`PRAGMA table_info(calls)`).all() as { name: string }[];
-if (!callColumns.some((c) => c.name === 'external_id')) {
-  db.exec(`ALTER TABLE calls ADD COLUMN external_id TEXT`);
+function assertConfigured() {
+  if (!supabaseConfigured) {
+    throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are not set — cannot reach the database.');
+  }
 }
 
-// Partial index: manual uploads all have NULL external_id and must not collide with each other.
-db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_calls_external_id ON calls(external_id) WHERE external_id IS NOT NULL`);
+/** Supabase returns an embedded one-to-one either as an object or a single-element array. */
+const one = <T>(v: T | T[] | null | undefined): T | undefined =>
+  Array.isArray(v) ? v[0] : (v ?? undefined);
 
-export function upsertAgent(agent: { id: string; name: string; email: string; role: string }) {
-  db.prepare(
-    `INSERT INTO agents (id, name, email, role) VALUES (@id, @name, @email, @role)
-     ON CONFLICT(id) DO UPDATE SET name=@name, email=@email, role=@role`,
-  ).run(agent);
+export async function upsertAgent(agent: { id: string; name: string; email: string; role: string }) {
+  assertConfigured();
+  const { error } = await supabaseAdmin.from('agents').upsert(agent, { onConflict: 'id' });
+  if (error) throw new Error(`upsertAgent failed: ${error.message}`);
 }
 
-export const listCallSummaries = () =>
-  db
-    .prepare(
-      `SELECT
-        c.id, c.recorded_at, c.duration_sec, c.status, c.source, c.direction,
-        a.name AS agent_name, a.email AS agent_email, a.role AS agent_role,
-        json_extract(c.analysis_json, '$.overallScore') AS overall_score,
-        json_extract(c.analysis_json, '$.band') AS band,
-        json_extract(c.analysis_json, '$.outcome') AS outcome,
-        json_extract(c.analysis_json, '$.flags') AS flags_json,
-        e.status AS email_status, e.sent_at, e.to_email
-      FROM calls c
-      JOIN agents a ON a.id = c.agent_id
-      LEFT JOIN emails e ON e.call_id = c.id
-      ORDER BY c.recorded_at DESC`,
+const SUMMARY_SELECT =
+  'id, recorded_at, duration_sec, status, source, direction, analysis_json,' +
+  ' agents!inner(name, email, role), emails(status, sent_at, to_email)';
+
+/** Row shape the frontend's CallSummary expects — deliberately still snake_case. */
+export async function listCallSummaries() {
+  assertConfigured();
+  const { data, error } = await supabaseAdmin
+    .from('calls')
+    .select(SUMMARY_SELECT)
+    .order('recorded_at', { ascending: false });
+  if (error) throw new Error(`listCallSummaries failed: ${error.message}`);
+
+  return (data ?? []).map((r: any) => {
+    const agent = one<any>(r.agents);
+    const email = one<any>(r.emails);
+    const analysis = r.analysis_json;
+    return {
+      id: r.id,
+      recorded_at: r.recorded_at,
+      duration_sec: r.duration_sec,
+      status: r.status,
+      source: r.source,
+      direction: r.direction,
+      agent_name: agent?.name ?? null,
+      agent_email: agent?.email ?? null,
+      agent_role: agent?.role ?? null,
+      // SQLite pulled these out with json_extract; jsonb hands us the object, so read it here.
+      overall_score: analysis?.overallScore ?? null,
+      band: analysis?.band ?? null,
+      outcome: analysis?.outcome ?? null,
+      flags_json: analysis?.flags ? JSON.stringify(analysis.flags) : null,
+      email_status: email?.status ?? null,
+      sent_at: email?.sent_at ?? null,
+      to_email: email?.to_email ?? null,
+    };
+  });
+}
+
+export async function getCallDetail(id: string) {
+  assertConfigured();
+  const { data, error } = await supabaseAdmin
+    .from('calls')
+    .select(
+      'id, recorded_at, duration_sec, status, audio_path, engine, transcript_json, analysis_json,' +
+        ' agents!inner(name, email, role), emails(status, to_email, subject, sent_at)',
     )
-    .all();
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw new Error(`getCallDetail failed: ${error.message}`);
+  if (!data) return undefined;
 
-export const getCallDetail = (id: string) =>
-  db
-    .prepare(
-      `SELECT
-        c.id, c.recorded_at, c.duration_sec, c.status, c.audio_path, c.engine,
-        c.transcript_json, c.analysis_json,
-        a.name AS agent_name, a.email AS agent_email, a.role AS agent_role,
-        e.status AS email_status, e.to_email, e.subject AS email_subject, e.sent_at AS email_sent_at
-      FROM calls c
-      JOIN agents a ON a.id = c.agent_id
-      LEFT JOIN emails e ON e.call_id = c.id
-      WHERE c.id = ?`,
-    )
-    .get(id);
+  const r: any = data;
+  const agent = one<any>(r.agents);
+  const email = one<any>(r.emails);
+  return {
+    id: r.id,
+    recorded_at: r.recorded_at,
+    duration_sec: r.duration_sec,
+    status: r.status,
+    audio_path: r.audio_path,
+    engine: r.engine,
+    transcript_json: r.transcript_json as Turn[] | null,
+    analysis_json: r.analysis_json,
+    agent_name: agent?.name ?? null,
+    agent_email: agent?.email ?? null,
+    agent_role: agent?.role ?? null,
+    email_status: email?.status ?? null,
+    to_email: email?.to_email ?? null,
+    email_subject: email?.subject ?? null,
+    email_sent_at: email?.sent_at ?? null,
+  };
+}
 
-export const getEmailBody = (callId: string) =>
-  db.prepare(`SELECT body_html FROM emails WHERE call_id = ?`).get(callId) as { body_html: string } | undefined;
+export async function getEmailBody(callId: string): Promise<{ body_html: string } | undefined> {
+  assertConfigured();
+  const { data, error } = await supabaseAdmin.from('emails').select('body_html').eq('call_id', callId).maybeSingle();
+  if (error) throw new Error(`getEmailBody failed: ${error.message}`);
+  return data ?? undefined;
+}
 
-export function insertCall(row: {
+export async function insertCall(row: {
   id: string;
   recorded_at: string;
   duration_sec: number;
@@ -104,31 +122,33 @@ export function insertCall(row: {
   agent_id: string;
   audio_path: string;
   engine: string | null;
-  transcript_json: string | null;
-  analysis_json: string | null;
+  transcript_json: unknown | null;
+  analysis_json: unknown | null;
   external_id?: string | null;
 }) {
-  db.prepare(
-    `INSERT INTO calls (id, recorded_at, duration_sec, status, source, direction, agent_id, audio_path, engine, transcript_json, analysis_json, external_id, created_at)
-     VALUES (@id, @recorded_at, @duration_sec, @status, @source, @direction, @agent_id, @audio_path, @engine, @transcript_json, @analysis_json, @external_id, @created_at)`,
-  ).run({ external_id: null, ...row, created_at: new Date().toISOString() });
+  assertConfigured();
+  const { error } = await supabaseAdmin.from('calls').insert({ external_id: null, ...row });
+  if (error) throw new Error(`insertCall failed: ${error.message}`);
 }
 
 /** True once a RingCentral recording has been ingested, so syncs stay idempotent. */
-export function hasExternalCall(externalId: string): boolean {
-  return db.prepare(`SELECT 1 FROM calls WHERE external_id = ?`).get(externalId) !== undefined;
+export async function hasExternalCall(externalId: string): Promise<boolean> {
+  assertConfigured();
+  const { data, error } = await supabaseAdmin.from('calls').select('id').eq('external_id', externalId).maybeSingle();
+  if (error) throw new Error(`hasExternalCall failed: ${error.message}`);
+  return Boolean(data);
 }
 
-export function updateCallAnalysis(id: string, transcriptJson: string, analysisJson: string, status: string) {
-  db.prepare(`UPDATE calls SET transcript_json = ?, analysis_json = ?, status = ? WHERE id = ?`).run(
-    transcriptJson,
-    analysisJson,
-    status,
-    id,
-  );
+export async function updateCallAnalysis(id: string, transcript: unknown, analysis: unknown, status: string) {
+  assertConfigured();
+  const { error } = await supabaseAdmin
+    .from('calls')
+    .update({ transcript_json: transcript, analysis_json: analysis, status })
+    .eq('id', id);
+  if (error) throw new Error(`updateCallAnalysis failed: ${error.message}`);
 }
 
-export function upsertEmail(row: {
+export async function upsertEmail(row: {
   call_id: string;
   status: string;
   to_email: string;
@@ -137,9 +157,29 @@ export function upsertEmail(row: {
   sent_at: string | null;
   error?: string | null;
 }) {
-  db.prepare(
-    `INSERT INTO emails (call_id, status, to_email, subject, body_html, sent_at, error)
-     VALUES (@call_id, @status, @to_email, @subject, @body_html, @sent_at, @error)
-     ON CONFLICT(call_id) DO UPDATE SET status=@status, to_email=@to_email, subject=@subject, body_html=@body_html, sent_at=@sent_at, error=@error`,
-  ).run({ error: null, ...row });
+  assertConfigured();
+  const { error } = await supabaseAdmin.from('emails').upsert({ error: null, ...row }, { onConflict: 'call_id' });
+  if (error) throw new Error(`upsertEmail failed: ${error.message}`);
+}
+
+/**
+ * Analyses from the last 7 days, for the weekly manager report.
+ *
+ * weeklyReport.ts used to reach past this module and run its own SQL against the sqlite handle;
+ * with Postgres there is no shared handle to borrow, so the query belongs here.
+ */
+export async function listRecentAnalyses(days = 7): Promise<{ agent_name: string; analysis_json: any }[]> {
+  assertConfigured();
+  const since = new Date(Date.now() - days * 86400_000).toISOString();
+  const { data, error } = await supabaseAdmin
+    .from('calls')
+    .select('analysis_json, agents!inner(name)')
+    .gte('recorded_at', since)
+    .not('analysis_json', 'is', null);
+  if (error) throw new Error(`listRecentAnalyses failed: ${error.message}`);
+
+  return (data ?? []).map((r: any) => ({
+    agent_name: one<any>(r.agents)?.name ?? 'Unknown',
+    analysis_json: r.analysis_json,
+  }));
 }
