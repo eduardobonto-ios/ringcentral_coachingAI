@@ -7,3 +7,4 @@ audio/*
 inbox/*
 !inbox/.gitkeep
 data/*.json
+data/*.db-*
