@@ -6,8 +6,17 @@
 import type { RcCallRecord, RcExtension } from './ringcentral.js';
 import type { Agent } from './pipeline.js';
 
-/** Calls shorter than this are hangups, voicemail drops and misdials — nothing to coach. */
-export const MIN_COACHABLE_SEC = 30;
+/**
+ * Calls shorter than this are transfers, voicemail drops, misdials and quick lookups — there is
+ * no conversation in them to coach.
+ *
+ * Set to 90s from the real distribution measured 2026-09-23 over 110 calls: 18% ran under 60s,
+ * 31% under 90s, median 155s. At the old 30s floor a 40-second call came back scored
+ * "needs-intervention" with zero strengths, because the model had nothing to work with and
+ * judged the silence. Feedback like that is exactly what this tool is meant not to produce, and
+ * those calls also drag the daily trend down for everyone.
+ */
+export const MIN_COACHABLE_SEC = 90;
 
 const idOf = (v: string | number | undefined | null): string | null =>
   v === undefined || v === null || String(v).length === 0 ? null : String(v);
