@@ -237,3 +237,39 @@ iframe.emailframe { width: 100%; height: 620px; border: none; background: #fff; 
   border: 1px solid var(--line); cursor: pointer;
 }
 .sign-out:hover { color: var(--ink); border-color: var(--ink-2); }
+
+/* Request-coaching: pick a day, then choose which calls are worth reviewing. */
+.coaching-request-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0 4px;
+}
+
+.coaching-request-row input[type='date'] {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+
+.call-options {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.call-options td {
+  padding: 10px 8px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+.call-options td:last-child {
+  text-align: right;
+  white-space: normal;
+}

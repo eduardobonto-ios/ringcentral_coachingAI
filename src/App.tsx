@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo, mmss, when, type CallSummary, type CallDetail as Detail, type Dimension } from './api';
 import { CallDetail } from './components/CallDetail';
 import { DailyCoachingPanel } from './components/DailyCoachingPanel';
+import { RequestCoaching } from './components/RequestCoaching';
 import { Login } from './components/Login';
 import { buildDailyRollup, latestDayKey, summarizeTrend, type DailyRollup } from './dailyRollup';
 import { useAuth } from './useAuth';
@@ -279,6 +280,16 @@ export default function App() {
           {coachingRequested ? 'Hide coaching view' : 'Request coaching'}
         </button>
       </section>
+
+      {coachingRequested && !isDemo && (
+        <RequestCoaching
+          onCoached={async (callId) => {
+            // A newly coached call is not in the list yet, so refresh before selecting it.
+            await load();
+            setSelected(callId);
+          }}
+        />
+      )}
 
       {coachingRequested && <DailyCoachingPanel rollups={rollups} showAgentName={role !== 'employee'} />}
 

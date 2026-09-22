@@ -9,6 +9,7 @@ import { processRecording, emailCoaching, coachingEmailsEnabled, type Agent } fr
 import { analyzeCall } from './coaching.js';
 import { startWeeklyReportCron } from './weeklyReport.js';
 import { startRingCentralSyncCron } from './ringcentralSync.js';
+import { listCallsForDay, coachOneCall } from './ringcentralOnDemand.js';
 import { requireAuth, canAccessAgentEmail, departmentByEmail } from './auth.js';
 import { verifyAudioToken } from './audioToken.js';
 import { signedRecordingUrl } from './storage.js';
@@ -64,6 +65,7 @@ app.use('/audio', (req, res, next) => {
 });
 app.use('/audio', express.static(AUDIO_DIR));
 
+app.use('/api', express.json());
 app.use('/api', requireAuth);
 
 app.get('/api/calls', async (req, res) => {
@@ -161,6 +163,45 @@ app.post('/api/calls/:id/analyze', async (req, res) => {
   }
 });
 
+// --- on-demand coaching ------------------------------------------------------------------
+//
+// Listing costs one call-log read and downloads nothing, so browsing a day is free and instant.
+// Coaching one call is the only thing that spends money, and the agent chooses when.
+
+app.get('/api/ringcentral/calls', async (req, res) => {
+  try {
+    const date = String(req.query.date ?? '');
+    const calls = await listCallsForDay({
+      date,
+      email: req.user!.email,
+      isAdmin: req.user!.role === 'admin',
+    });
+    res.json({ date, calls });
+  } catch (e) {
+    const message = (e as Error).message;
+    // A bad date is the caller's fault; anything else is ours or RingCentral's.
+    res.status(/^Invalid date/.test(message) ? 400 : 500).json({ error: message });
+  }
+});
+
+app.post('/api/ringcentral/coach', async (req, res) => {
+  try {
+    const { date, recordingId } = req.body ?? {};
+    if (!date || !recordingId) return res.status(400).json({ error: 'date and recordingId are required' });
+
+    const result = await coachOneCall({
+      date: String(date),
+      recordingId: String(recordingId),
+      email: req.user!.email,
+      isAdmin: req.user!.role === 'admin',
+    });
+    res.json(result);
+  } catch (e) {
+    const message = (e as Error).message;
+    res.status(/not available to coach/.test(message) ? 403 : 500).json({ error: message });
+  }
+});
+
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
@@ -210,6 +251,10 @@ if (isDirectRun) {
   app.listen(port, () => {
     console.log(`coaching-api listening on http://localhost:${port}`);
     startWeeklyReportCron();
-    startRingCentralSyncCron();
+    // Off by default: coaching is requested per call now, so the nightly batch would transcribe
+    // calls nobody asked about. Kept for backfilling a range (npm run rc:sync), and switchable
+    // back on with RC_NIGHTLY_SYNC=true for a host that can run for 30-45 minutes.
+    if (process.env.RC_NIGHTLY_SYNC === 'true') startRingCentralSyncCron();
+    else console.log('[rc-sync] nightly batch disabled — coaching is on-demand (RC_NIGHTLY_SYNC=true to re-enable).');
   });
 }

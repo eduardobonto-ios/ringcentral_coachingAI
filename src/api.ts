@@ -137,6 +137,40 @@ export const api = {
   },
 };
 
+export type RingCentralCallOption = {
+  externalId: string;
+  recordingId: string;
+  startTime: string;
+  durationSec: number;
+  direction: 'inbound' | 'outbound' | 'unknown';
+  agentEmail: string;
+  agentName: string;
+  coached: boolean;
+  callId: string | null;
+};
+
+/**
+ * On-demand coaching. Listing a day reads the RingCentral call log and downloads nothing, so it
+ * is fast and free; only `coach` costs anything, and only for the call the person picked.
+ */
+export const ringcentral = {
+  callsOn: (date: string) =>
+    seed
+      ? Promise.resolve({ date, calls: [] as RingCentralCallOption[] })
+      : get<{ date: string; calls: RingCentralCallOption[] }>(`/api/ringcentral/calls?date=${date}`),
+
+  coach: async (date: string, recordingId: string) => {
+    if (seed) throw new Error('This is a read-only preview — run the server to coach a call.');
+    const res = await fetch(apiUrl('/api/ringcentral/coach'), {
+      method: 'POST',
+      headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, recordingId }),
+    });
+    if (!res.ok) throw new Error(((await res.json().catch(() => null)) as any)?.error ?? (await res.text()));
+    return res.json() as Promise<{ callId: string; alreadyCoached: boolean }>;
+  },
+};
+
 export const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 export const when = (iso: string) =>

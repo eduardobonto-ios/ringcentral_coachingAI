@@ -139,6 +139,14 @@ export async function hasExternalCall(externalId: string): Promise<boolean> {
   return Boolean(data);
 }
 
+/** The stored call for an upstream recording, if it has already been coached. */
+export async function findCallByExternalId(externalId: string): Promise<{ id: string } | undefined> {
+  assertConfigured();
+  const { data, error } = await supabaseAdmin.from('calls').select('id').eq('external_id', externalId).maybeSingle();
+  if (error) throw new Error(`findCallByExternalId failed: ${error.message}`);
+  return data ?? undefined;
+}
+
 export async function updateCallAnalysis(id: string, transcript: unknown, analysis: unknown, status: string) {
   assertConfigured();
   const { error } = await supabaseAdmin
