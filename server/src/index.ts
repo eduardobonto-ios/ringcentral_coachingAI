@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import multer from 'multer';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { listCallSummaries, getCallDetail, getEmailBody, updateCallAnalysis } from './db.js';
 import { DIMENSIONS, RUBRIC_VERSION } from './rubric.js';
 import { processRecording, emailCoaching, coachingEmailsEnabled, type Agent } from './pipeline.js';
@@ -157,9 +157,26 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-const port = Number(process.env.PORT) || 8787;
-app.listen(port, () => {
-  console.log(`coaching-api listening on http://localhost:${port}`);
-  startWeeklyReportCron();
-  startRingCentralSyncCron();
-});
+// Exported so the app can be mounted by a host — a serverless handler, a container, or the
+// block below. Importing this module must not bind a port or start timers: on serverless every
+// invocation would re-register the crons, and node-cron timers do not survive a frozen function
+// anyway.
+export { app };
+
+/**
+ * Only when run directly (npm run dev / npm start), never when imported.
+ *
+ * The crons live here rather than at module scope for the same reason: a long-running host is
+ * the only place they can actually fire. The nightly RingCentral sync takes 30-45 minutes for a
+ * full day of calls, well past any serverless timeout, so it needs a persistent process.
+ */
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectRun) {
+  const port = Number(process.env.PORT) || 8787;
+  app.listen(port, () => {
+    console.log(`coaching-api listening on http://localhost:${port}`);
+    startWeeklyReportCron();
+    startRingCentralSyncCron();
+  });
+}
