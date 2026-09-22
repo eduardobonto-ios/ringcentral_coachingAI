@@ -1,4 +1,5 @@
 import cron from 'node-cron';
+import { coachingEmailsEnabled } from './pipeline.js';
 import { db } from './db.js';
 import { sendEmail } from './email.js';
 
@@ -118,13 +119,26 @@ export async function sendWeeklyReport(): Promise<{ ok: boolean; error?: string 
     }))
     .sort((a, b) => TREND_RANK[a.trend] - TREND_RANK[b.trend]);
 
+  if (!coachingEmailsEnabled()) return { ok: false, error: 'outbound mail is disabled (COACHING_EMAILS_ENABLED)' };
+
   const weekOf = new Date(Date.now() - 7 * 86400_000).toLocaleDateString();
   const html = buildReportHtml(rows, weekOf);
   return sendEmail({ to: managerEmail, subject: `Weekly coaching report — week of ${weekOf}`, html });
 }
 
-/** Every Monday 8am. Reused as-is once RingCentral feeds real weekly volume. */
+/**
+ * Every Monday 8am — but only when outbound mail is enabled.
+ *
+ * This is a second, independent mail path: it goes to MANAGER_EMAIL rather than to agents, so
+ * suppressing coaching mail alone would still have sent a named per-agent summary out every
+ * Monday. COACHING_EMAILS_ENABLED governs everything this system sends.
+ */
 export function startWeeklyReportCron() {
+  if (!coachingEmailsEnabled()) {
+    console.log('[weeklyReport] outbound mail disabled (COACHING_EMAILS_ENABLED) — weekly report will not send.');
+    return;
+  }
+
   cron.schedule('0 8 * * 1', () => {
     sendWeeklyReport()
       .then((r) => (r.ok ? console.log('[weeklyReport] sent') : console.warn('[weeklyReport] skipped:', r.error)))
