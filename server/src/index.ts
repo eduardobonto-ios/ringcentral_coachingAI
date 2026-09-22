@@ -19,6 +19,39 @@ const AUDIO_DIR = path.join(__dirname, '..', 'audio');
 const app = express();
 const upload = multer({ dest: AUDIO_DIR });
 
+/**
+ * CORS for the hosted frontend.
+ *
+ * The API runs on its own always-on host (the nightly sync needs a persistent process), so in
+ * production the browser calls it cross-origin. Hand-rolled rather than pulling in `cors`: this
+ * is an allowlist and a preflight, and the list must stay explicit — these routes serve
+ * recordings of real customer calls, so a reflected-origin wildcard would be wrong.
+ *
+ * CORS_ORIGINS is comma-separated. Unset, only same-origin requests work, which is correct for
+ * local development through Vite's proxy.
+ */
+const allowedOrigins = (process.env.CORS_ORIGINS ?? '')
+  .split(',')
+  .map((o) => o.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin.replace(/\/$/, ''))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(origin && allowedOrigins.length ? 204 : 403);
+  next();
+});
+
+// Lets a host (Railway, Render, Azure Container Apps) confirm the process is up without
+// authenticating. Deliberately reveals nothing about the data.
+app.get('/health', (_req, res) => res.json({ ok: true }));
+
 // Recordings need the same RBAC as /api, but the native <audio> element can't send a Bearer
 // header — so this checks a short-lived signed token (issued per-call by GET /api/calls/:id,
 // only after that route's own canAccessAgentEmail check) instead of serving the folder openly.

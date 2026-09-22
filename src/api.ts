@@ -76,6 +76,18 @@ type Seed = {
 };
 const seed: Seed | undefined = (globalThis as any).__SEED__;
 
+/**
+ * Where the API lives.
+ *
+ * Empty in dev and for a same-origin deploy, so requests stay relative and Vite's proxy handles
+ * them. Set VITE_API_BASE_URL when the API is hosted separately from the frontend — which it is
+ * in production, because the nightly sync needs a persistent process and cannot run on the same
+ * serverless platform that serves the static site.
+ */
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+
+const apiUrl = (path: string) => `${API_BASE}${path}`;
+
 // Demo mode never calls this (isDemo short-circuits first), so it's fine to always attach an
 // auth header here — no Supabase session just means no header, and the server will 401.
 async function authHeaders(): Promise<Record<string, string>> {
@@ -85,7 +97,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 }
 
 async function get<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: await authHeaders() });
+  const res = await fetch(apiUrl(url), { headers: await authHeaders() });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json() as Promise<T>;
 }
@@ -106,20 +118,20 @@ export const api = {
   // src="..." navigation can't send — render the result with <iframe srcDoc>.
   emailHtml: async (id: string): Promise<string> => {
     if (seed) return seed.emails[id] ?? '';
-    const res = await fetch(`/api/calls/${id}/email`, { headers: await authHeaders() });
+    const res = await fetch(apiUrl(`/api/calls/${id}/email`), { headers: await authHeaders() });
     return res.ok ? res.text() : '';
   },
   upload: async (file: File) => {
     if (seed) throw new Error('This is a read-only preview — run the server to process new recordings.');
     const body = new FormData();
     body.append('file', file);
-    const res = await fetch('/api/upload', { method: 'POST', body, headers: await authHeaders() });
+    const res = await fetch(apiUrl('/api/upload'), { method: 'POST', body, headers: await authHeaders() });
     if (!res.ok) throw new Error(await res.text());
     return res.json() as Promise<{ callId: string }>;
   },
   analyze: async (id: string) => {
     if (seed) throw new Error('This is a read-only preview — run the server to process new recordings.');
-    const res = await fetch(`/api/calls/${id}/analyze`, { method: 'POST', headers: await authHeaders() });
+    const res = await fetch(apiUrl(`/api/calls/${id}/analyze`), { method: 'POST', headers: await authHeaders() });
     if (!res.ok) throw new Error(await res.text());
     return res.json() as Promise<{ status: string }>;
   },

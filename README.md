@@ -60,3 +60,42 @@ follows the viewer's OS theme with no toggle to maintain.
 - **Agent scorecard.** `/api/agents/:id/summary` returns the 8-week per-dimension
   averages already; nothing renders them yet.
 - **Pagination.** The call list loads everything. Fine at a few hundred, not at ten thousand.
+
+## Deployment
+
+The frontend and the backend cannot live on the same platform, and it is worth knowing why
+before changing this: a full day of RingCentral calls takes 30–45 minutes to download,
+transcribe and analyse, which is far past any serverless function timeout. The sync needs a
+persistent process.
+
+So:
+
+| Piece | Where | Why |
+|---|---|---|
+| Frontend (this Vite app) | Vercel | Static build, nothing to keep running |
+| API + nightly sync | One always-on host (Railway/Render/Fly, later Azure Container Apps) | Long sync, plus `node-cron` timers that a frozen function would never fire |
+
+`server/Dockerfile` builds that service. It is a plain container on purpose — the same image
+runs on Railway today and Azure Container Apps later, so the move is a deploy-target change
+rather than a rewrite.
+
+### Bringing it up, in order
+
+1. **Deploy the API** from `server/` using its Dockerfile. Set every variable in
+   `server/.env.example`: Supabase, OpenAI, RingCentral, and `CORS_ORIGINS` pointing at the
+   Vercel URL. `GET /health` returns `{"ok":true}` once it is live.
+2. **Point the frontend at it** — set `VITE_API_BASE_URL` to the API's URL in the Vercel project
+   settings.
+3. **Turn off demo mode** — change `vercel.json`'s `buildCommand` from `npm run build:full` to
+   `npm run build`. `build:full` bakes a fixture payload into the HTML and `src/api.ts` then
+   short-circuits every request to it, so the deployed app never calls the API at all.
+
+Order matters. Doing step 3 first leaves the site calling an API that is not there yet, which is
+worse than the demo it replaces.
+
+### What stays off
+
+`COACHING_EMAILS_ENABLED` is `false` by default and gates all three outbound paths — per-call
+coaching, the on-demand analyze route, and the Monday manager report. Agents read their coaching
+by signing in. Turn it on only deliberately: sent mail cannot be recalled, and the RingCentral
+call log contains people who are not coached agents.
