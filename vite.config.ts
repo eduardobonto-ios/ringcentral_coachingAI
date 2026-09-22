@@ -5,9 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Recordings are served by Supabase Storage as signed URLs, so only /api is proxied.
     proxy: {
       '/api': 'http://localhost:8787',
-      '/audio': 'http://localhost:8787',
     },
   },
 });

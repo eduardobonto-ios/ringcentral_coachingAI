@@ -4,8 +4,8 @@
 // so there is no value in reacting within seconds of a call ending, and a single batched pass
 // is far kinder to RingCentral's rate limits than per-call notifications.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import cron from 'node-cron';
 import { hasExternalCall } from './db.js';
 import { processRecording } from './pipeline.js';
@@ -21,8 +21,9 @@ import {
   extensionIndex,
 } from './ringcentralMap.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AUDIO_DIR = path.join(__dirname, '..', 'audio');
+// Recordings live in Supabase Storage; this is only somewhere for the transcription API to
+// read a file from before it is uploaded and deleted. Temp is correct, and works on serverless.
+const AUDIO_DIR = path.join(os.tmpdir(), 'coaching-audio');
 
 const TIMEZONE = 'Asia/Manila';
 

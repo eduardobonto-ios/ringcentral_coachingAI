@@ -1,0 +1,16 @@
+{
+  "//": "The Vercel entrypoint is Node code, not browser code, so it cannot share the root tsconfig (DOM lib, JSX, bundler resolution). Checked by `npm run typecheck` so a broken import fails here rather than on deploy.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": false,
+    "types": ["node"]
+  },
+  "include": ["."],
+  "references": []
+}

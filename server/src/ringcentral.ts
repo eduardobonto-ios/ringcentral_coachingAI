@@ -7,12 +7,11 @@
 // grant is deprecated; do not reintroduce it. The JWT itself is minted in the Developer Console
 // and pasted into RINGCENTRAL_JWT — we never sign one locally, so there is no private key here.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVER = process.env.RINGCENTRAL_SERVER_URL || 'https://platform.ringcentral.com';
 
 /** Verified against the live account 2026-09-23: 10 requests per 60s on the call-log group. */
@@ -196,8 +195,12 @@ export async function fetchExtensions(): Promise<RcExtension[]> {
 }
 
 // The roster changes only when someone joins or leaves, but every sync used to re-fetch it —
-// pure waste against a 10-request budget. Cache it next to the database.
-const ROSTER_CACHE = path.join(__dirname, '..', 'data', 'rc-extensions.json');
+// pure waste against a 10-request budget.
+//
+// Cached in the OS temp dir, not the project: a serverless filesystem is read-only apart from
+// tmp, and tmp does not survive a cold start. Losing it costs one extra API call, which is the
+// right trade for code that runs anywhere.
+const ROSTER_CACHE = path.join(os.tmpdir(), 'rc-extensions.json');
 const ROSTER_TTL_MS = 24 * 3600_000;
 
 export async function fetchExtensionsCached(opts: { force?: boolean } = {}): Promise<RcExtension[]> {

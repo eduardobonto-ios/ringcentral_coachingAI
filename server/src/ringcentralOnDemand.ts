@@ -9,15 +9,16 @@
 // costs anything, and one call is ~15-20s, comfortably inside any function timeout.
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { fetchExtensionsCached, fetchCallLog, downloadRecording, type RcCallRecord, type RcExtension } from './ringcentral.js';
 import { agentExtensionId, isCoachable, toAgent, directionOf, externalIdOf, recordingFilename, extensionIndex } from './ringcentralMap.js';
 import { processRecording } from './pipeline.js';
 import { hasExternalCall, findCallByExternalId } from './db.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AUDIO_DIR = path.join(__dirname, '..', 'audio');
+// Recordings live in Supabase Storage; this is only somewhere for the transcription API to
+// read a file from before it is uploaded and deleted. Temp is correct, and works on serverless.
+const AUDIO_DIR = path.join(os.tmpdir(), 'coaching-audio');
 
 /** The timezone the rest of the app displays and groups by — see src/dailyRollup.ts. */
 const TZ_OFFSET = '+08:00'; // Asia/Manila, no DST

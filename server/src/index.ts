@@ -1,8 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
 import multer from 'multer';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { listCallSummaries, getCallDetail, getEmailBody, updateCallAnalysis } from './db.js';
 import { DIMENSIONS, RUBRIC_VERSION } from './rubric.js';
 import { processRecording, emailCoaching, coachingEmailsEnabled, type Agent } from './pipeline.js';
@@ -11,25 +13,25 @@ import { startWeeklyReportCron } from './weeklyReport.js';
 import { startRingCentralSyncCron } from './ringcentralSync.js';
 import { listCallsForDay, coachOneCall } from './ringcentralOnDemand.js';
 import { requireAuth, canAccessAgentEmail, departmentByEmail } from './auth.js';
-import { verifyAudioToken } from './audioToken.js';
 import { signedRecordingUrl } from './storage.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AUDIO_DIR = path.join(__dirname, '..', 'audio');
+// Uploads are staged here only until they reach Supabase Storage.
+const AUDIO_DIR = path.join(os.tmpdir(), 'coaching-audio');
+fs.mkdirSync(AUDIO_DIR, { recursive: true });
 
 const app = express();
 const upload = multer({ dest: AUDIO_DIR });
 
 /**
- * CORS for the hosted frontend.
+ * CORS, for deployments where the API is not same-origin with the frontend.
  *
- * The API runs on its own always-on host (the nightly sync needs a persistent process), so in
- * production the browser calls it cross-origin. Hand-rolled rather than pulling in `cors`: this
- * is an allowlist and a preflight, and the list must stay explicit — these routes serve
- * recordings of real customer calls, so a reflected-origin wildcard would be wrong.
+ * Not needed on Vercel, where api/index.ts serves this app under the same domain, nor locally
+ * behind Vite's proxy — in both, CORS_ORIGINS stays empty and nothing here applies. It exists
+ * for a split deployment: the container in server/Dockerfile, or Azure later.
  *
- * CORS_ORIGINS is comma-separated. Unset, only same-origin requests work, which is correct for
- * local development through Vite's proxy.
+ * Hand-rolled rather than pulling in `cors`: it is an allowlist and a preflight, and the list
+ * should stay explicit and visible, because these routes serve recordings of real customer
+ * conversations and a reflected-origin wildcard would be wrong.
  */
 const allowedOrigins = (process.env.CORS_ORIGINS ?? '')
   .split(',')
@@ -52,18 +54,6 @@ app.use((req, res, next) => {
 // Lets a host (Railway, Render, Azure Container Apps) confirm the process is up without
 // authenticating. Deliberately reveals nothing about the data.
 app.get('/health', (_req, res) => res.json({ ok: true }));
-
-// Recordings need the same RBAC as /api, but the native <audio> element can't send a Bearer
-// header — so this checks a short-lived signed token (issued per-call by GET /api/calls/:id,
-// only after that route's own canAccessAgentEmail check) instead of serving the folder openly.
-app.use('/audio', (req, res, next) => {
-  const filename = decodeURIComponent(req.path.replace(/^\/+/, ''));
-  if (!verifyAudioToken(filename, req.query.exp, req.query.sig)) {
-    return res.status(401).send('Missing or expired audio token.');
-  }
-  next();
-});
-app.use('/audio', express.static(AUDIO_DIR));
 
 app.use('/api', express.json());
 app.use('/api', requireAuth);
