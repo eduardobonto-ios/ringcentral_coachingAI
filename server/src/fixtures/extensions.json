@@ -1,0 +1,27 @@
+{
+  "_comment": "Shape of /restapi/v1.0/account/~/extension?type=User. Only extensions with contact.email can be coached.",
+  "records": [
+    {
+      "id": "62001",
+      "extensionNumber": "101",
+      "type": "User",
+      "status": "Enabled",
+      "contact": { "firstName": "Maria", "lastName": "Santos", "email": "maria@valveman.com", "jobTitle": "Inside Sales Rep" }
+    },
+    {
+      "id": "62002",
+      "extensionNumber": "102",
+      "type": "User",
+      "status": "Enabled",
+      "contact": { "firstName": "Jomar", "lastName": "Reyes", "email": "jomar@valveman.com" }
+    },
+    {
+      "id": "69999",
+      "extensionNumber": "600",
+      "type": "Department",
+      "name": "Sales Ring Group",
+      "contact": {}
+    }
+  ],
+  "paging": { "page": 1, "totalPages": 1 }
+}

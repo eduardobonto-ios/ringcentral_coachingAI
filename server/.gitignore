@@ -6,3 +6,4 @@ audio/*
 !audio/.gitkeep
 inbox/*
 !inbox/.gitkeep
+data/*.json

@@ -7,7 +7,17 @@ import { sendEmail } from './email.js';
 
 export type Agent = { id: string; name: string; email: string; role: string };
 
-/** Full automatic path: transcribe -> AI-analyze -> store -> email. Used by POST /api/upload. */
+/**
+ * Master switch for outbound coaching mail, default OFF.
+ *
+ * Agents read their coaching by signing into the app, so email is a convenience, not the
+ * delivery mechanism. A sent message cannot be recalled, and the RingCentral call log contains
+ * people who are not coached agents at all — so nothing leaves this system until someone sets
+ * COACHING_EMAILS_ENABLED=true deliberately.
+ */
+export const coachingEmailsEnabled = (): boolean => process.env.COACHING_EMAILS_ENABLED === 'true';
+
+/** Full automatic path: transcribe -> AI-analyze -> store -> email. Used by POST /api/upload and the RingCentral sync. */
 export async function processRecording(opts: {
   audioPath: string;
   audioFilename: string;
@@ -15,6 +25,11 @@ export async function processRecording(opts: {
   source: 'manual-upload' | 'ringcentral';
   direction: 'inbound' | 'outbound' | 'unknown';
   agent: Agent;
+  /** Stable upstream key (e.g. `rc:<recordingId>`) so repeat syncs don't re-ingest. */
+  externalId?: string;
+  /** Overrides the COACHING_EMAILS_ENABLED master switch for this one call. `false` always
+   *  suppresses; omitted means "follow the switch". */
+  sendEmail?: boolean;
 }): Promise<{ callId: string }> {
   upsertAgent(opts.agent);
   const callId = randomUUID();
@@ -49,9 +64,10 @@ export async function processRecording(opts: {
     engine: 'faster-whisper/small.en',
     transcript_json: JSON.stringify(turnsForDb),
     analysis_json: analysisJson,
+    external_id: opts.externalId ?? null,
   });
 
-  if (analysisJson) {
+  if (analysisJson && (opts.sendEmail ?? coachingEmailsEnabled())) {
     await emailCoaching(callId, opts.agent, opts.recordedAt, turnsForDb, JSON.parse(analysisJson));
   }
 

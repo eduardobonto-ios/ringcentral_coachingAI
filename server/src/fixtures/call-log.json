@@ -1,0 +1,125 @@
+{
+  "_comment": "Shapes VERIFIED against ValveMan's live account 2026-09-23 (view=Detailed, withRecording=true). Phone numbers and names are fake; structure is real. Note: `paging` has NO totalPages, and inbound records carry NO top-level `extension` — the answering agent is in legs[].",
+  "records": [
+    {
+      "id": "outbound-coachable",
+      "sessionId": "1002",
+      "startTime": "2026-09-21T05:40:22.000Z",
+      "duration": 820,
+      "type": "Voice",
+      "direction": "Outbound",
+      "result": "Call connected",
+      "to": { "phoneNumber": "+14045550187", "location": "Atlanta, GA" },
+      "from": {
+        "name": "Jomar Reyes",
+        "phoneNumber": "+18005550100",
+        "extensionId": "62002",
+        "device": { "id": "804353214016" }
+      },
+      "extension": { "id": 62002 },
+      "legs": [
+        {
+          "legType": "PstnToSip",
+          "result": "Call connected",
+          "direction": "Outbound",
+          "extension": { "id": 62002 },
+          "to": { "phoneNumber": "+14045550187" },
+          "from": { "name": "Jomar Reyes", "extensionId": "62002" }
+        }
+      ],
+      "recording": {
+        "id": "rec-9002",
+        "type": "Automatic",
+        "contentUri": "https://media.ringcentral.com/restapi/v1.0/account/1/recording/rec-9002/content"
+      }
+    },
+    {
+      "id": "inbound-coachable-via-legs",
+      "sessionId": "1001",
+      "startTime": "2026-09-21T02:14:07.000Z",
+      "duration": 1350,
+      "type": "Voice",
+      "direction": "Inbound",
+      "result": "Accepted",
+      "from": { "name": "WIRELESS CALLER", "phoneNumber": "+15125550143", "location": "San Mateo, CA" },
+      "to": { "phoneNumber": "+18005550100" },
+      "legs": [
+        { "legType": "Accept", "result": "Accepted", "to": { "phoneNumber": "+18005550100" } },
+        {
+          "legType": "Accept",
+          "result": "Accepted",
+          "extension": { "id": 62001 },
+          "to": { "extensionId": "62001", "name": "Maria Santos" }
+        },
+        { "legType": "PstnToSip", "result": "Call connected", "extension": { "id": 62001 }, "to": {} },
+        { "legType": "PstnToSip", "result": "Stopped", "extension": { "id": 62001 }, "to": {} }
+      ],
+      "recording": {
+        "id": "rec-9001",
+        "type": "Automatic",
+        "contentUri": "https://media.ringcentral.com/restapi/v1.0/account/1/recording/rec-9001/content"
+      }
+    },
+    {
+      "id": "inbound-ring-group-only",
+      "sessionId": "1005",
+      "startTime": "2026-09-21T07:10:00.000Z",
+      "duration": 400,
+      "type": "Voice",
+      "direction": "Inbound",
+      "result": "Accepted",
+      "to": { "phoneNumber": "+18005550100" },
+      "legs": [
+        { "legType": "Accept", "result": "Accepted", "to": { "phoneNumber": "+18005550100" } },
+        { "legType": "Accept", "result": "Missed", "extension": { "id": 69999 }, "to": { "extensionId": "69999" } }
+      ],
+      "recording": {
+        "id": "rec-9005",
+        "type": "Automatic",
+        "contentUri": "https://media.ringcentral.com/restapi/v1.0/account/1/recording/rec-9005/content"
+      }
+    },
+    {
+      "id": "no-recording",
+      "sessionId": "1003",
+      "startTime": "2026-09-21T06:02:00.000Z",
+      "duration": 640,
+      "type": "Voice",
+      "direction": "Inbound",
+      "result": "Accepted",
+      "to": { "phoneNumber": "+18005550100" },
+      "legs": [{ "legType": "Accept", "result": "Accepted", "extension": { "id": 62001 } }]
+    },
+    {
+      "id": "too-short",
+      "sessionId": "1004",
+      "startTime": "2026-09-21T06:30:00.000Z",
+      "duration": 11,
+      "type": "Voice",
+      "direction": "Outbound",
+      "result": "Call connected",
+      "from": { "name": "Jomar Reyes", "extensionId": "62002" },
+      "extension": { "id": 62002 },
+      "recording": {
+        "id": "rec-9004",
+        "type": "Automatic",
+        "contentUri": "https://media.ringcentral.com/restapi/v1.0/account/1/recording/rec-9004/content"
+      }
+    },
+    {
+      "id": "fax",
+      "sessionId": "1006",
+      "startTime": "2026-09-21T08:00:00.000Z",
+      "duration": 300,
+      "type": "Fax",
+      "direction": "Inbound",
+      "extension": { "id": 62001 },
+      "recording": {
+        "id": "rec-9006",
+        "contentUri": "https://media.ringcentral.com/restapi/v1.0/account/1/recording/rec-9006/content"
+      }
+    }
+  ],
+  "paging": { "page": 1, "perPage": 100, "pageStart": 0, "pageEnd": 5 },
+  "navigation": { "firstPage": { "uri": "https://platform.ringcentral.com/..." } }
+}

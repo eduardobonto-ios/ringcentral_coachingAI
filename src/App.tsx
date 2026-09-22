@@ -23,9 +23,11 @@ export default function App() {
   const [cosmeticRole, setCosmeticRole] = useState<'employee' | 'manager' | 'admin'>('manager');
   const role: 'employee' | 'manager' | 'admin' = isDemo ? cosmeticRole : viewMode === 'staff' ? 'employee' : viewMode;
   const [coachingRequested, setCoachingRequested] = useState(false);
-  const [callsPerAgentDay, setCallsPerAgentDay] = useState(8);
-  const [averageMinutes, setAverageMinutes] = useState(8);
-  const [employees, setEmployees] = useState(12);
+  // Real Valveman figures (confirmed 2026-09-18): 8 agents, ~4hrs of calls/day each at a
+  // 20-25min average call length -> ~11 calls/agent/day. Still editable in the UI.
+  const [callsPerAgentDay, setCallsPerAgentDay] = useState(11);
+  const [averageMinutes, setAverageMinutes] = useState(22.5);
+  const [employees, setEmployees] = useState(8);
   const [transcriptionRate, setTranscriptionRate] = useState(0.006);
   const [analysisRate, setAnalysisRate] = useState(0.012);
   const fileInput = useRef<HTMLInputElement>(null);

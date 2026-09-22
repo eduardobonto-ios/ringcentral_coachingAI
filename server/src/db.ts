@@ -26,6 +26,7 @@ db.exec(`
     engine TEXT,                      -- transcription engine used
     transcript_json TEXT,             -- Turn[]
     analysis_json TEXT,               -- CallDetail['analysis']
+    external_id TEXT,                 -- rc:<recordingId> for RingCentral-sourced calls; NULL for uploads
     created_at TEXT NOT NULL
   );
 
@@ -39,6 +40,16 @@ db.exec(`
     error TEXT
   );
 `);
+
+// calls.external_id arrived with RingCentral ingestion, so the CREATE TABLE IF NOT EXISTS above
+// is a no-op on any database that already existed — add it explicitly.
+const callColumns = db.prepare(`PRAGMA table_info(calls)`).all() as { name: string }[];
+if (!callColumns.some((c) => c.name === 'external_id')) {
+  db.exec(`ALTER TABLE calls ADD COLUMN external_id TEXT`);
+}
+
+// Partial index: manual uploads all have NULL external_id and must not collide with each other.
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_calls_external_id ON calls(external_id) WHERE external_id IS NOT NULL`);
 
 export function upsertAgent(agent: { id: string; name: string; email: string; role: string }) {
   db.prepare(
@@ -95,11 +106,17 @@ export function insertCall(row: {
   engine: string | null;
   transcript_json: string | null;
   analysis_json: string | null;
+  external_id?: string | null;
 }) {
   db.prepare(
-    `INSERT INTO calls (id, recorded_at, duration_sec, status, source, direction, agent_id, audio_path, engine, transcript_json, analysis_json, created_at)
-     VALUES (@id, @recorded_at, @duration_sec, @status, @source, @direction, @agent_id, @audio_path, @engine, @transcript_json, @analysis_json, @created_at)`,
-  ).run({ ...row, created_at: new Date().toISOString() });
+    `INSERT INTO calls (id, recorded_at, duration_sec, status, source, direction, agent_id, audio_path, engine, transcript_json, analysis_json, external_id, created_at)
+     VALUES (@id, @recorded_at, @duration_sec, @status, @source, @direction, @agent_id, @audio_path, @engine, @transcript_json, @analysis_json, @external_id, @created_at)`,
+  ).run({ external_id: null, ...row, created_at: new Date().toISOString() });
+}
+
+/** True once a RingCentral recording has been ingested, so syncs stay idempotent. */
+export function hasExternalCall(externalId: string): boolean {
+  return db.prepare(`SELECT 1 FROM calls WHERE external_id = ?`).get(externalId) !== undefined;
 }
 
 export function updateCallAnalysis(id: string, transcriptJson: string, analysisJson: string, status: string) {

@@ -5,9 +5,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listCallSummaries, getCallDetail, getEmailBody, updateCallAnalysis } from './db.js';
 import { DIMENSIONS, RUBRIC_VERSION } from './rubric.js';
-import { processRecording, emailCoaching, type Agent } from './pipeline.js';
+import { processRecording, emailCoaching, coachingEmailsEnabled, type Agent } from './pipeline.js';
 import { analyzeCall } from './coaching.js';
 import { startWeeklyReportCron } from './weeklyReport.js';
+import { startRingCentralSyncCron } from './ringcentralSync.js';
 import { requireAuth, canAccessAgentEmail, departmentByEmail } from './auth.js';
 import { signedAudioUrl, verifyAudioToken } from './audioToken.js';
 
@@ -100,16 +101,23 @@ app.post('/api/calls/:id/analyze', async (req, res) => {
 
     updateCallAnalysis(req.params.id, JSON.stringify(turns), JSON.stringify(analysis), 'analyzed');
 
-    try {
-      await emailCoaching(
-        req.params.id,
-        { id: '', name: row.agent_name, email: row.agent_email, role: row.agent_role },
-        row.recorded_at,
-        turns,
-        analysis,
-      );
-    } catch (e) {
-      console.warn(`[analyze] coaching email failed for ${req.params.id}: ${(e as Error).message}`);
+    // Only mail an agent coaching they asked for themselves. An admin or manager reading
+    // someone else's call is reviewing it, not requesting feedback on their behalf — and this
+    // route is reachable from the call list, so the old unconditional send meant browsing
+    // somebody's call could put an AI critique in their inbox.
+    const selfRequested = req.user!.email === row.agent_email;
+    if (selfRequested && coachingEmailsEnabled()) {
+      try {
+        await emailCoaching(
+          req.params.id,
+          { id: '', name: row.agent_name, email: row.agent_email, role: row.agent_role },
+          row.recorded_at,
+          turns,
+          analysis,
+        );
+      } catch (e) {
+        console.warn(`[analyze] coaching email failed for ${req.params.id}: ${(e as Error).message}`);
+      }
     }
 
     res.json({ status: 'analyzed' });
@@ -152,4 +160,5 @@ const port = Number(process.env.PORT) || 8787;
 app.listen(port, () => {
   console.log(`coaching-api listening on http://localhost:${port}`);
   startWeeklyReportCron();
+  startRingCentralSyncCron();
 });
