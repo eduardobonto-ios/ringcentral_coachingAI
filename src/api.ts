@@ -149,6 +149,15 @@ export type RingCentralCallOption = {
   callId: string | null;
 };
 
+export type DayCount = {
+  /** YYYY-MM-DD in Manila. */
+  date: string;
+  /** False means nobody has indexed this day yet — render it as unknown, never as zero. */
+  indexed: boolean;
+  coachable: number;
+  coached: number;
+};
+
 /**
  * On-demand coaching. Listing a day reads the RingCentral call log and downloads nothing, so it
  * is fast and free; only `coach` costs anything, and only for the call the person picked.
@@ -158,6 +167,11 @@ export const ringcentral = {
     seed
       ? Promise.resolve({ date, calls: [] as RingCentralCallOption[] })
       : get<{ date: string; calls: RingCentralCallOption[] }>(`/api/ringcentral/calls?date=${date}`),
+
+  monthOverview: (month: string) =>
+    seed
+      ? Promise.resolve({ month, days: [] as DayCount[] })
+      : get<{ month: string; days: DayCount[] }>(`/api/ringcentral/month?month=${month}`),
 
   coach: async (date: string, recordingId: string) => {
     if (seed) throw new Error('This is a read-only preview — run the server to coach a call.');

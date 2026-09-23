@@ -342,15 +342,71 @@ iframe.emailframe { width: 100%; height: 620px; border: none; background: #fff; 
 
 /* Request coaching: pick a day, then choose which calls are worth reviewing. */
 .coaching-request-row {
-  display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 14px 0 6px;
+  display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin: 14px 0 6px;
 }
-.coaching-request-row input[type='date'] {
-  padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--line);
-  background: var(--surface); color: var(--ink); font: inherit;
+.coaching-request-row .primary-action { margin-top: 4px; }
+
+/* Month grid. Replaces <input type='date'>, whose native popup cannot carry per-day counts. */
+.coaching-calendar {
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+  padding: 14px; width: 306px;
 }
-.coaching-request-row input[type='date']:focus {
-  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+.cal-head {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
 }
+.cal-head strong { font-size: 14px; color: var(--ink); }
+.cal-nav {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+  border-radius: var(--radius-sm); width: 28px; height: 28px; font-size: 15px; line-height: 1;
+  cursor: pointer;
+}
+.cal-nav:hover:not(:disabled) { background: var(--surface-2); border-color: var(--accent-line); }
+.cal-nav:disabled { opacity: 0.35; cursor: default; }
+
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-weekday {
+  text-align: center; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted-2); padding-bottom: 6px;
+}
+
+.cal-day {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 5px 0 4px; border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; font: inherit; cursor: pointer; color: var(--ink-2);
+}
+.cal-day:hover:not(:disabled) { background: var(--surface-2); }
+.cal-num { font-size: 13px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+
+/* The badge line is always rendered, even when blank, so days do not change height as counts
+   load in and the grid does not jump. */
+.cal-badge {
+  font-size: 10px; line-height: 1.1; min-height: 12px; font-variant-numeric: tabular-nums;
+  color: var(--muted-2);
+}
+.cal-day.has-calls { color: var(--ink); }
+.cal-day.has-calls .cal-num { font-weight: 600; }
+.cal-day.has-calls .cal-badge { color: var(--accent); font-weight: 600; }
+.cal-day.is-empty { color: var(--muted-2); }
+.cal-day.is-future { opacity: 0.32; cursor: default; }
+
+.cal-day.is-selected { background: var(--accent); border-color: var(--accent); }
+.cal-day.is-selected .cal-num,
+.cal-day.is-selected .cal-badge { color: #fff; }
+
+/* Already-coached marker. A dot rather than a second number: the count that matters when
+   choosing a day is how much is left to review, not how much is done. */
+.cal-coached {
+  display: block; width: 4px; height: 4px; border-radius: 50%; background: var(--ok);
+  position: absolute; top: 4px; right: 4px;
+}
+.cal-legend .cal-coached { position: static; display: inline-block; margin-right: 4px; }
+.cal-day.is-selected .cal-coached { background: #fff; }
+
+.cal-legend {
+  display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--line-soft); font-size: 11px; color: var(--muted);
+}
+.cal-legend b { color: var(--accent); }
 
 .call-options { width: 100%; border-collapse: collapse; margin-top: 16px; }
 .call-options td {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ringcentral, mmss, type RingCentralCallOption } from '../api';
+import { CoachingCalendar } from './CoachingCalendar';
 
 /**
  * Pick a day, see the calls, coach the ones worth reviewing.
@@ -16,6 +17,8 @@ export function RequestCoaching({ onCoached }: { onCoached: (callId: string) => 
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Coaching a call changes that day's "already coached" badge, so the calendar has to re-read.
+  const [calendarKey, setCalendarKey] = useState(0);
 
   async function load() {
     setLoading(true);
@@ -23,6 +26,8 @@ export function RequestCoaching({ onCoached }: { onCoached: (callId: string) => 
     try {
       const { calls } = await ringcentral.callsOn(date);
       setCalls(calls);
+      // Listing a day also indexes it server-side, so the badge for this day is now known.
+      setCalendarKey((k) => k + 1);
     } catch (e) {
       setError((e as Error).message);
       setCalls(null);
@@ -39,6 +44,7 @@ export function RequestCoaching({ onCoached }: { onCoached: (callId: string) => 
       setCalls((prev) =>
         prev?.map((c) => (c.recordingId === call.recordingId ? { ...c, coached: true, callId } : c)) ?? null,
       );
+      setCalendarKey((k) => k + 1);
       onCoached(callId);
     } catch (e) {
       setError((e as Error).message);
@@ -51,7 +57,18 @@ export function RequestCoaching({ onCoached }: { onCoached: (callId: string) => 
     <section className="panel coaching-panel">
       <div className="eyebrow">Request coaching</div>
       <div className="coaching-request-row">
-        <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} aria-label="Date" />
+        <CoachingCalendar
+          value={date}
+          max={today}
+          refreshKey={calendarKey}
+          onChange={(d) => {
+            setDate(d);
+            // The listing on screen belongs to the previous day; clearing it avoids showing one
+            // day's calls under another day's heading.
+            setCalls(null);
+            setError(null);
+          }}
+        />
         <button className="primary-action" onClick={load} disabled={loading}>
           {loading ? 'Loading calls…' : 'Show my calls'}
         </button>
