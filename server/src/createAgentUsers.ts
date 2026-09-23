@@ -71,22 +71,33 @@ for (const p of planned) {
     email_confirm: true, // no mailbox round trip; these are provisioned, not self-signed-up
   });
 
-  if (error || !data.user) {
-    console.error(`  FAIL  ${p.email.padEnd(26)} ${error?.message ?? 'no user returned'}`);
+  // Re-running must be safe: an already-registered agent still gets their profile completed,
+  // because a half-finished first run is exactly when this script gets run twice.
+  const existed = Boolean(error && /already/i.test(error.message));
+  if (error && !existed) {
+    console.error(`  FAIL  ${p.email.padEnd(26)} ${error.message}`);
     continue;
   }
 
-  // handle_new_user() has already inserted a blank profile; fill in what it cannot know.
-  // role stays 'employee': these are agents, and an agent must not see the whole account.
-  const { error: profileError } = await supabaseAdmin
+  // handle_new_user() has already inserted the profile row; fill in what it cannot know.
+  //
+  // Deliberately does NOT set `role`. The live table's default and its check constraint have
+  // drifted from supabase/schema.sql — it accepts 'admin' | 'inside_sales' | 'outside_sales',
+  // not the 'employee' that file declares — and writing a role here failed the constraint while
+  // the trigger's own default was already correct. What actually matters for access is only that
+  // the role is not 'admin' (see viewModeFor in src/useAuth.ts), which the default satisfies.
+  // Picking the right sales role for a person is a human decision, not this script's.
+  const { error: profileError, data: updated } = await supabaseAdmin
     .from('profiles')
-    .update({ full_name: p.name, role: 'employee', position: 'staff', must_change_password: true })
-    .eq('id', data.user.id);
+    .update({ full_name: p.name, position: 'staff', must_change_password: true })
+    .eq('email', p.email)
+    .select('email');
 
+  const what = existed ? 'already registered' : 'created';
   console.log(
-    profileError
-      ? `  PART  ${p.email.padEnd(26)} user created, profile update failed: ${profileError.message}`
-      : `  OK    ${p.email.padEnd(26)} ${p.name}`,
+    profileError || !updated?.length
+      ? `  PART  ${p.email.padEnd(26)} user ${what}, profile update failed: ${profileError?.message ?? 'no row matched'}`
+      : `  OK    ${p.email.padEnd(26)} ${p.name.padEnd(18)} (${what})`,
   );
 }
 
