@@ -125,6 +125,9 @@ export function RequestCoaching({ onCoached }: { onCoached: (callId: string) => 
           )}
 
           {calls && calls.length > 0 && (
+            /* Scrolls inside the panel rather than stretching it: a busy day is 20+ calls, and
+               letting the table set the page height pushed everything below it off screen. */
+            <div className="call-options-scroll">
             <table className="call-options">
               <thead>
                 <tr>
@@ -159,6 +162,7 @@ export function RequestCoaching({ onCoached }: { onCoached: (callId: string) => 
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           {/* Long calls take a while to transcribe — say so rather than letting it look hung. */}

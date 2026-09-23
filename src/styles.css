@@ -453,10 +453,27 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 .cal-legend b { color: var(--accent); }
 
-.call-options { width: 100%; border-collapse: collapse; margin-top: 4px; }
+/* The day's calls scroll within the panel. A busy day is 20+ calls, and letting the table set
+   the page height pushed the conversation list and everything under it off screen. */
+.call-options-scroll {
+  max-height: 300px; overflow-y: auto; margin-top: 4px;
+  /* Room for the scrollbar so the action column does not sit under it. */
+  padding-right: 2px;
+}
+.call-options-scroll::-webkit-scrollbar { width: 9px; }
+.call-options-scroll::-webkit-scrollbar-thumb {
+  background: var(--line); border-radius: 999px; border: 2px solid var(--surface);
+}
+.call-options-scroll::-webkit-scrollbar-thumb:hover { background: var(--muted-2); }
+.call-options-scroll { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+.call-options { width: 100%; border-collapse: collapse; }
+/* Sticky header, with an opaque background so rows do not show through as they pass under it. */
 .call-options th {
-  padding: 10px 10px 8px; text-align: left; font-size: 10.5px; font-weight: 600;
+  position: sticky; top: 0; z-index: 1; background: var(--surface);
+  padding: 8px 10px; text-align: left; font-size: 10.5px; font-weight: 600;
   text-transform: uppercase; letter-spacing: .07em; color: var(--muted-2);
+  box-shadow: inset 0 -1px 0 var(--line);
 }
 .call-options td {
   padding: 11px 10px; border-top: 1px solid var(--line-soft);
