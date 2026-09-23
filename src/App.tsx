@@ -344,9 +344,6 @@ export default function App() {
           <CallDetail
             call={detail}
             dimensions={dimensions}
-            // The coaching panel is always rendered now, so there is nothing to open — take
-            // the person to it instead.
-            onCoach={() => document.getElementById('request-coaching')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             onAnalyzed={async () => {
               await load();
               const fresh = await api.call(detail.id).catch(() => null);

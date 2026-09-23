@@ -7,12 +7,10 @@ const scoreColor = (n: number) =>
 export function CallDetail({
   call,
   dimensions,
-  onCoach,
   onAnalyzed,
 }: {
   call: Detail;
   dimensions: Dimension[];
-  onCoach: () => void;
   onAnalyzed: () => void | Promise<void>;
 }) {
   const [tab, setTab] = useState<'coaching' | 'transcript'>('coaching');
@@ -21,10 +19,15 @@ export function CallDetail({
   const audio = useRef<HTMLAudioElement>(null);
   const a = call.analysis;
 
-  const handleCoachMe = async () => {
+  /**
+   * Retry analysis for a call that was ingested but never analysed.
+   *
+   * Only reachable while `call.analysis` is null. Once a call has coaching there is nothing for
+   * this to do — the coaching is already on screen underneath — and the list above is where a
+   * new call gets coached.
+   */
+  const handleAnalyze = async () => {
     setTab('coaching');
-    onCoach();
-    if (a) return;
     if (isDemo) {
       setAnalyzeError('This preview call has no analysis yet — run the server to process it.');
       return;
@@ -72,9 +75,13 @@ export function CallDetail({
           <div style={{ flex: '1 1 260px', minWidth: 240 }}>
             {a?.outcome && <div className="outcome">{a.outcome}</div>}
             <audio ref={audio} controls preload="metadata" src={audioSrc(call)} />
-            <button className="primary-action call-action" onClick={handleCoachMe} disabled={analyzing}>
-              {analyzing ? 'Analyzing…' : a ? 'Coach me on this call' : 'Get coaching for this call'}
-            </button>
+            {/* No button once coaching exists: it only re-selected a tab whose content was
+                already visible below, duplicating "Coach this call" in the list above. */}
+            {!a && (
+              <button className="primary-action call-action" onClick={handleAnalyze} disabled={analyzing}>
+                {analyzing ? 'Analyzing…' : 'Get coaching for this call'}
+              </button>
+            )}
             {analyzeError && (
               <div style={{ fontSize: 12, color: 'var(--risk)', marginTop: 6 }}>{analyzeError}</div>
             )}

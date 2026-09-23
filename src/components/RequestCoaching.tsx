@@ -68,7 +68,7 @@ export function RequestCoaching({ onCoached }: { onCoached: (callId: string) => 
   const remaining = calls?.filter((c) => !c.coached).length ?? 0;
 
   return (
-    <section className="panel request-panel" id="request-coaching">
+    <section className="panel request-panel">
       <header>
         <span>Request coaching</span>
         <span className="request-head-note">Pick a day, then choose a call</span>
