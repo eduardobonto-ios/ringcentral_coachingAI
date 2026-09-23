@@ -175,21 +175,14 @@ export default function App() {
   return (
     <div className="app">
       <div className="masthead">
-        <div>
-          <img
-            src={logo}
-            alt="Welsford x Valveman"
-            style={{
-              display: 'block',
-              height: 76,
-              marginBottom: 14,
-              padding: '12px 18px',
-              background: '#10161a',
-              borderRadius: 10,
-            }}
-          />
-          <h1>Coaching workspace</h1>
-          <div className="sub">A daily view for better conversations, not a scorecard</div>
+        {/* Logo beside the title rather than above it: stacked, the masthead pushed the
+            conversation list off the first screen, which is the one thing people come here for. */}
+        <div className="masthead-brand">
+          <img src={logo} alt="Welsford x Valveman" className="masthead-logo" />
+          <div>
+            <h1>Coaching workspace</h1>
+            <div className="sub">A daily view for better conversations, not a scorecard</div>
+          </div>
         </div>
         <div>
           <input
