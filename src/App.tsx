@@ -18,6 +18,7 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailsById, setDetailsById] = useState<Record<string, Detail>>({});
+  const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Demo build only: a cosmetic switcher since there's no login there. Live mode derives the
   // equivalent role from the signed-in profile (see `role` below).
@@ -53,30 +54,66 @@ export default function App() {
     void load();
   }, [canLoad]);
 
+  /**
+   * Load the selected call, and remember it.
+   *
+   * A call already fetched is shown from `detailsById` by the click handler before this runs, so
+   * re-opening one is instant. This still revalidates, because coaching a call changes its
+   * detail and a stale copy would quietly show the old version.
+   */
   useEffect(() => {
     if (!selected) return;
-    void api.call(selected).then(setDetail).catch(() => setDetail(null));
-  }, [selected]);
-
-  // Fetched once per call list so the daily-coaching rollup (strengths/opportunities/practice
-  // action) can be aggregated client-side, without a dedicated backend endpoint. In live mode
-  // `calls` is already scoped server-side (own calls / department / everyone), so this never
-  // sees more than the signed-in user is allowed to.
-  useEffect(() => {
-    if (!calls.length) return;
     let cancelled = false;
-    void Promise.all(calls.map((c) => api.call(c.id).catch(() => null))).then((results) => {
-      if (cancelled) return;
-      const map: Record<string, Detail> = {};
-      results.forEach((d, i) => {
-        if (d) map[calls[i].id] = d;
-      });
-      setDetailsById(map);
-    });
+    setDetailLoading(true);
+
+    void api
+      .call(selected)
+      .then((d) => {
+        if (cancelled) return;
+        setDetail(d);
+        setDetailsById((m) => ({ ...m, [selected]: d }));
+      })
+      .catch(() => !cancelled && setDetail(null))
+      .finally(() => !cancelled && setDetailLoading(false));
+
     return () => {
       cancelled = true;
     };
-  }, [calls]);
+  }, [selected]);
+
+  /**
+   * Prefetch every call's detail, for the per-agent rollup managers and admins see.
+   *
+   * Deliberately not run for an agent. The rollup it feeds is only rendered for managers and
+   * admins, so for everyone else this was twenty-odd requests supporting nothing on screen — and
+   * because browsers allow about six connections per origin, a click landed behind them and took
+   * seconds to answer. The rollup is also aggregated client-side, so it genuinely needs every
+   * detail; the fix is to skip it, not to shrink it.
+   *
+   * Even where it is needed it runs a few at a time, leaving connections free for the click.
+   */
+  useEffect(() => {
+    if (role === 'employee' || !calls.length) return;
+    let cancelled = false;
+
+    void (async () => {
+      const CONCURRENCY = 4;
+      const map: Record<string, Detail> = {};
+      for (let i = 0; i < calls.length && !cancelled; i += CONCURRENCY) {
+        const batch = calls.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(batch.map((c) => api.call(c.id).catch(() => null)));
+        results.forEach((d, j) => {
+          if (d) map[batch[j].id] = d;
+        });
+        // Published per batch so the rollup fills in progressively rather than after the last one.
+        if (!cancelled) setDetailsById({ ...map });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [calls, role]);
 
   const monthlyCalls = callsPerAgentDay * employees * 22;
   const monthlyMinutes = monthlyCalls * averageMinutes;
@@ -269,7 +306,14 @@ export default function App() {
                 .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
                 .map((c) => (
                   <li key={c.id}>
-                    <button aria-current={selected === c.id} onClick={() => setSelected(c.id)}>
+                    <button
+                      aria-current={selected === c.id}
+                      onClick={() => {
+                        setSelected(c.id);
+                        // Paint whatever we already hold at once; the effect revalidates behind it.
+                        setDetail(detailsById[c.id] ?? null);
+                      }}
+                    >
                       <span className="who">{c.agent_name}</span>
                       <span className="score" style={{ color: 'var(--accent)' }}>
                         {c.overall_score !== null ? 'Ready' : 'Pending'}
@@ -299,7 +343,7 @@ export default function App() {
           />
         ) : (
           <div className="panel">
-            <div className="empty">Select a call to see its coaching.</div>
+            <div className="empty">{detailLoading ? 'Opening the call…' : 'Select a call to see its coaching.'}</div>
           </div>
         )}
       </div>
