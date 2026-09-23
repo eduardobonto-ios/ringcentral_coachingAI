@@ -12,6 +12,7 @@ import { analyzeCall } from './coaching.js';
 import { startWeeklyReportCron } from './weeklyReport.js';
 import { startRingCentralSyncCron } from './ringcentralSync.js';
 import { listCallsForDay, coachOneCall } from './ringcentralOnDemand.js';
+import { monthOverview, indexRecentDays, startDayIndexCron } from './callDayIndex.js';
 import { requireAuth, canAccessAgentEmail, departmentByEmail } from './auth.js';
 import { signedRecordingUrl } from './storage.js';
 
@@ -56,6 +57,34 @@ app.use((req, res, next) => {
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.use('/api', express.json());
+
+/**
+ * Refresh the day index. Called by Vercel Cron (see vercel.json), which issues a GET and, when
+ * CRON_SECRET is set on the project, sends it as a bearer token.
+ *
+ * Registered above `requireAuth` on purpose: a cron has no Supabase session, so it authenticates
+ * with the shared secret instead. Express matches in order, so this route is reached first; every
+ * other /api path still goes through requireAuth below.
+ *
+ * Refuses to run when CRON_SECRET is unset rather than defaulting to open — this endpoint spends
+ * RingCentral rate budget, and an unauthenticated trigger is a free way for anyone to exhaust it.
+ */
+app.get('/api/cron/index-days', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return res.status(503).json({ error: 'CRON_SECRET is not configured.' });
+  if (req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ error: 'Unauthorized.' });
+
+  try {
+    // Two days, not one: today is still accumulating calls, and yesterday may have gained a
+    // recording after the call ended. Re-indexing both is two call-log reads and no audio.
+    const results = await indexRecentDays(2);
+    res.json({ indexed: results });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
 app.use('/api', requireAuth);
 
 app.get('/api/calls', async (req, res) => {
@@ -174,6 +203,27 @@ app.get('/api/ringcentral/calls', async (req, res) => {
   }
 });
 
+/**
+ * Per-day counts for one month, so the date picker can show which days are worth opening.
+ *
+ * Reads only the cached index and the calls table — no RingCentral request — so it stays fast
+ * enough to refire every time someone pages the calendar.
+ */
+app.get('/api/ringcentral/month', async (req, res) => {
+  try {
+    const month = String(req.query.month ?? '');
+    const days = await monthOverview({
+      month,
+      email: req.user!.email,
+      isAdmin: req.user!.role === 'admin',
+    });
+    res.json({ month, days });
+  } catch (e) {
+    const message = (e as Error).message;
+    res.status(/^Invalid month/.test(message) ? 400 : 500).json({ error: message });
+  }
+});
+
 app.post('/api/ringcentral/coach', async (req, res) => {
   try {
     const { date, recordingId } = req.body ?? {};
@@ -241,6 +291,7 @@ if (isDirectRun) {
   app.listen(port, () => {
     console.log(`coaching-api listening on http://localhost:${port}`);
     startWeeklyReportCron();
+    startDayIndexCron();
     // Off by default: coaching is requested per call now, so the nightly batch would transcribe
     // calls nobody asked about. Kept for backfilling a range (npm run rc:sync), and switchable
     // back on with RC_NIGHTLY_SYNC=true for a host that can run for 30-45 minutes.

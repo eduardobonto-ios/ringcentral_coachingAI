@@ -15,13 +15,12 @@ import { fetchExtensionsCached, fetchCallLog, downloadRecording, type RcCallReco
 import { agentExtensionId, isCoachable, toAgent, directionOf, externalIdOf, recordingFilename, extensionIndex } from './ringcentralMap.js';
 import { processRecording } from './pipeline.js';
 import { hasExternalCall, findCallByExternalId } from './db.js';
+import { dayWindow } from './manilaDay.js';
+import { writeDayIndex } from './callDayIndex.js';
 
 // Recordings live in Supabase Storage; this is only somewhere for the transcription API to
 // read a file from before it is uploaded and deleted. Temp is correct, and works on serverless.
 const AUDIO_DIR = path.join(os.tmpdir(), 'coaching-audio');
-
-/** The timezone the rest of the app displays and groups by — see src/dailyRollup.ts. */
-const TZ_OFFSET = '+08:00'; // Asia/Manila, no DST
 
 export type CallOption = {
   externalId: string;
@@ -34,14 +33,6 @@ export type CallOption = {
   coached: boolean;
   callId: string | null;
 };
-
-/** A calendar day in Manila, as the UTC instants the RingCentral call log expects. */
-function dayWindow(date: string): { from: string; to: string } {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`Invalid date "${date}" — expected YYYY-MM-DD.`);
-  const from = new Date(`${date}T00:00:00${TZ_OFFSET}`);
-  const to = new Date(from.getTime() + 24 * 3600_000);
-  return { from: from.toISOString(), to: to.toISOString() };
-}
 
 /**
  * Which calls this viewer may see.
@@ -72,6 +63,11 @@ export async function listCallsForDay(opts: { date: string; email: string; isAdm
   const { from, to } = dayWindow(opts.date);
   const byExtension = extensionIndex(await fetchExtensionsCached());
   const records = await fetchCallLog({ dateFrom: from, dateTo: to });
+
+  // The whole day's log is already in hand, so caching its per-agent counts is free. Deliberately
+  // counts every extension, not just the ones this viewer may see: the index serves everyone's
+  // calendar, and scoping happens when it is read back.
+  writeDayIndex(opts.date, records, byExtension);
 
   const visible = visibleTo(records, byExtension, { email: opts.email, isAdmin: opts.isAdmin });
 

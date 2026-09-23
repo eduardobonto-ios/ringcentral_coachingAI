@@ -293,32 +293,36 @@ export default function App() {
 
       {coachingRequested && <DailyCoachingPanel rollups={rollups} showAgentName={role !== 'employee'} />}
 
-      <section className="cost-panel panel">
-        <div className="cost-intro">
-          <div className="eyebrow">Before automatic transcription</div>
-          <h2>Model the monthly cost first.</h2>
-          <p>These estimates make the tradeoff visible. A lower-cost rollout could sample calls, transcribe on request, or analyze a daily set instead of every recording.</p>
-        </div>
-        <div className="cost-fields">
-          <label>Calls / agent / day<input type="number" min="0" value={callsPerAgentDay} onChange={(e) => setCallsPerAgentDay(Number(e.target.value))} /></label>
-          <label>Average minutes<input type="number" min="1" value={averageMinutes} onChange={(e) => setAverageMinutes(Number(e.target.value))} /></label>
-          <label>Employees / agents<input type="number" min="1" value={employees} onChange={(e) => setEmployees(Number(e.target.value))} /></label>
-          <label>Transcription $ / min<input type="number" min="0" step="0.001" value={transcriptionRate} onChange={(e) => setTranscriptionRate(Number(e.target.value))} /></label>
-          <label>AI analysis $ / call<input type="number" min="0" step="0.001" value={analysisRate} onChange={(e) => setAnalysisRate(Number(e.target.value))} /></label>
-        </div>
-        <div className="cost-result">
-          <div><span>Monthly calls</span><strong>{monthlyCalls.toLocaleString()}</strong></div>
-          <div><span>Transcription volume</span><strong>{monthlyMinutes.toLocaleString()} min</strong></div>
-          <div><span>Transcription</span><strong>${transcriptionCost.toFixed(2)}</strong></div>
-          <div><span>AI analysis</span><strong>${analysisCost.toFixed(2)}</strong></div>
-          <div className="total"><span>Estimated monthly total</span><strong>${monthlyCost.toFixed(2)}</strong></div>
-        </div>
-        <div className="cost-note">
-          Defaults: OpenAI Whisper API ($0.006/min) and Claude Sonnet 5 (~2K input / ~750 output tokens per structured
-          review, at $2/$10 per 1M tokens). Planning estimate only — confirm current vendor pricing, taxes, audio
-          storage, and retention costs before committing.
-        </div>
-      </section>
+      {/* Cost modelling is a planning tool for whoever owns the spend, not something an
+          agent or manager acts on — admins only. */}
+      {role === 'admin' && (
+        <section className="cost-panel panel">
+          <div className="cost-intro">
+            <div className="eyebrow">Before automatic transcription</div>
+            <h2>Model the monthly cost first.</h2>
+            <p>These estimates make the tradeoff visible. A lower-cost rollout could sample calls, transcribe on request, or analyze a daily set instead of every recording.</p>
+          </div>
+          <div className="cost-fields">
+            <label>Calls / agent / day<input type="number" min="0" value={callsPerAgentDay} onChange={(e) => setCallsPerAgentDay(Number(e.target.value))} /></label>
+            <label>Average minutes<input type="number" min="1" value={averageMinutes} onChange={(e) => setAverageMinutes(Number(e.target.value))} /></label>
+            <label>Employees / agents<input type="number" min="1" value={employees} onChange={(e) => setEmployees(Number(e.target.value))} /></label>
+            <label>Transcription $ / min<input type="number" min="0" step="0.001" value={transcriptionRate} onChange={(e) => setTranscriptionRate(Number(e.target.value))} /></label>
+            <label>AI analysis $ / call<input type="number" min="0" step="0.001" value={analysisRate} onChange={(e) => setAnalysisRate(Number(e.target.value))} /></label>
+          </div>
+          <div className="cost-result">
+            <div><span>Monthly calls</span><strong>{monthlyCalls.toLocaleString()}</strong></div>
+            <div><span>Transcription volume</span><strong>{monthlyMinutes.toLocaleString()} min</strong></div>
+            <div><span>Transcription</span><strong>${transcriptionCost.toFixed(2)}</strong></div>
+            <div><span>AI analysis</span><strong>${analysisCost.toFixed(2)}</strong></div>
+            <div className="total"><span>Estimated monthly total</span><strong>${monthlyCost.toFixed(2)}</strong></div>
+          </div>
+          <div className="cost-note">
+            Defaults: OpenAI Whisper API ($0.006/min) and Claude Sonnet 5 (~2K input / ~750 output tokens per structured
+            review, at $2/$10 per 1M tokens). Planning estimate only — confirm current vendor pricing, taxes, audio
+            storage, and retention costs before committing.
+          </div>
+        </section>
+      )}
 
       <div className="split">
         <div className="panel">

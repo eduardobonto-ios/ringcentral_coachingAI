@@ -6,5 +6,16 @@
       "maxDuration": 300
     }
   },
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api" }]
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/index-days",
+      "schedule": "10 18 * * *"
+    }
+  ]
 }

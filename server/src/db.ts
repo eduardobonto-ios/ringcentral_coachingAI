@@ -191,3 +191,66 @@ export async function listRecentAnalyses(days = 7): Promise<{ agent_name: string
     analysis_json: r.analysis_json,
   }));
 }
+
+// --- call day index --------------------------------------------------------------------------
+//
+// Cached per-day counts of coachable calls, so the coaching date picker can show which days are
+// worth opening without querying RingCentral for a whole month. See supabase/003_call_day_index.sql.
+
+export type DayIndexRow = { day: string; extension_id: string; agent_email: string; coachable_count: number };
+
+/**
+ * Record one day's counts, replacing whatever was there.
+ *
+ * Called with the FULL set of extensions seen that day, including zero-count ones, so a day that
+ * genuinely had no calls is stored as known-empty rather than staying indistinguishable from a
+ * day nobody has indexed yet. That distinction is the whole point: the calendar shows "—" for the
+ * first and "·" for the second.
+ */
+export async function upsertDayIndex(rows: DayIndexRow[]) {
+  assertConfigured();
+  if (rows.length === 0) return;
+  const { error } = await supabaseAdmin
+    .from('call_day_index')
+    .upsert(rows.map((r) => ({ ...r, indexed_at: new Date().toISOString() })), { onConflict: 'day,extension_id' });
+  if (error) throw new Error(`upsertDayIndex failed: ${error.message}`);
+}
+
+/**
+ * Every indexed (day, extension) row in [from, to].
+ *
+ * Returns the whole range unfiltered and lets the caller scope it. Filtering by email in SQL
+ * would also hide the zero-call sentinel rows (agent_email '*'), so a day with no calls would
+ * come back looking un-indexed to an agent — the exact distinction the index exists to make. A
+ * month is a few hundred rows; scoping them in Node is cheaper than getting that wrong.
+ */
+export async function listDayIndex(from: string, to: string): Promise<DayIndexRow[]> {
+  assertConfigured();
+  const { data, error } = await supabaseAdmin
+    .from('call_day_index')
+    .select('day, extension_id, agent_email, coachable_count')
+    .gte('day', from)
+    .lte('day', to);
+  if (error) throw new Error(`listDayIndex failed: ${error.message}`);
+  return (data ?? []) as DayIndexRow[];
+}
+
+/**
+ * Calls already coached in a window, as raw (recorded_at, agent email) pairs.
+ *
+ * Deliberately not aggregated in SQL: PostgREST has no GROUP BY, and bucketing by Manila day is
+ * a timezone decision that belongs next to the rest of the day-window logic. The row count is
+ * small — these are only the calls someone actually asked to be coached.
+ */
+export async function listCoachedInWindow(fromIso: string, toIso: string): Promise<{ recorded_at: string; agent_email: string }[]> {
+  assertConfigured();
+  const { data, error } = await supabaseAdmin
+    .from('calls')
+    .select('recorded_at, agents!inner(email)')
+    .gte('recorded_at', fromIso)
+    .lt('recorded_at', toIso)
+    .eq('source', 'ringcentral');
+  if (error) throw new Error(`listCoachedInWindow failed: ${error.message}`);
+
+  return (data ?? []).map((r: any) => ({ recorded_at: r.recorded_at, agent_email: one<any>(r.agents)?.email ?? '' }));
+}
