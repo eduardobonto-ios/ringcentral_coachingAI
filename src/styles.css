@@ -188,8 +188,26 @@ body {
 .cost-note { margin-top: 18px; font-size: 12px; color: var(--muted-2); line-height: 1.6; }
 
 /* layout */
-.split { display: grid; grid-template-columns: minmax(300px, 390px) 1fr; gap: 20px; align-items: start; }
-@media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+/* Conversations and the call beside it share one row of fixed height, so their boxes start and
+ * end together. Previously the list capped its own scroller at 70vh while the detail capped the
+ * whole panel, which left the two bottoms at different places whatever the content. */
+.split {
+  display: grid; grid-template-columns: minmax(300px, 390px) 1fr; gap: 20px;
+  align-items: stretch; height: 70vh; min-height: 420px;
+}
+/* Grid children default to min-height:auto, which refuses to shrink below their content and
+   would push the box past the row instead of scrolling inside it. */
+.split > * { min-height: 0; }
+.split > .panel { display: flex; flex-direction: column; }
+.split > .panel > header { flex: 0 0 auto; }
+
+@media (max-width: 900px) {
+  /* Stacked, a fixed row height would crop one of them — let both size to their content. */
+  .split { grid-template-columns: 1fr; height: auto; min-height: 0; }
+  .split > * { min-height: auto; }
+  .calls { max-height: 60vh; }
+  .detail > .panel { max-height: 80vh; }
+}
 
 .panel {
   background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
@@ -202,7 +220,7 @@ body {
 }
 
 /* call list */
-.calls { list-style: none; margin: 0; padding: 0; max-height: 70vh; overflow-y: auto; }
+.calls { list-style: none; margin: 0; padding: 0; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .calls li + li { border-top: 1px solid var(--line-soft); }
 .calls button {
   display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; width: 100%; text-align: left;
@@ -231,8 +249,8 @@ body {
  *
  * The list already capped at 70vh; the detail beside it did not, so a long transcript set the
  * page height and reading it scrolled the list, the calendar and the day summary off screen. */
-.detail { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-.detail > .panel { display: flex; flex-direction: column; max-height: 70vh; }
+.detail { display: flex; flex-direction: column; gap: 20px; min-width: 0; height: 100%; }
+.detail > .panel { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .detail-scroll { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
 .detail-scroll::-webkit-scrollbar { width: 9px; }
 .detail-scroll::-webkit-scrollbar-thumb {

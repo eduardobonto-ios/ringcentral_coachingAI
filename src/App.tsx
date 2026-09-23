@@ -262,7 +262,7 @@ export default function App() {
             <span style={{ fontWeight: 400, letterSpacing: 0, textTransform: 'none' }}>recent first</span>
           </header>
           {calls.length === 0 ? (
-            <div className="empty">Nothing yet. Upload a recording above to get started.</div>
+            <div className="empty">No coached calls yet. Pick a day above and coach one to see it here.</div>
           ) : (
             <ul className="calls">
               {[...visibleCalls]
