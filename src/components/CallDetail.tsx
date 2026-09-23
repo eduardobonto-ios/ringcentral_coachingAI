@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { api, audioSrc, isDemo, mmss, when, type CallDetail as Detail, type Dimension } from '../api';
 
 const scoreColor = (n: number) =>
@@ -15,26 +15,11 @@ export function CallDetail({
   onCoach: () => void;
   onAnalyzed: () => void | Promise<void>;
 }) {
-  const [tab, setTab] = useState<'coaching' | 'transcript' | 'email'>('coaching');
+  const [tab, setTab] = useState<'coaching' | 'transcript'>('coaching');
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const a = call.analysis;
-  const [emailHtml, setEmailHtml] = useState('');
-
-  // The live route needs a Bearer header, which a plain <iframe src> can't send — fetch it
-  // ourselves and render with srcDoc instead.
-  useEffect(() => {
-    setEmailHtml('');
-    if (!call.email) return;
-    let cancelled = false;
-    void api.emailHtml(call.id).then((html) => {
-      if (!cancelled) setEmailHtml(html);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [call.id, call.email]);
 
   const handleCoachMe = async () => {
     setTab('coaching');
@@ -93,11 +78,6 @@ export function CallDetail({
             {analyzeError && (
               <div style={{ fontSize: 12, color: 'var(--risk)', marginTop: 6 }}>{analyzeError}</div>
             )}
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-              {call.email
-                ? `Coaching email ${call.email.status === 'sent' ? 'sent to' : 'prepared for'} ${call.email.to}`
-                : 'No coaching email yet'}
-            </div>
           </div>
         </div>
 
@@ -107,9 +87,6 @@ export function CallDetail({
           </button>
           <button role="tab" aria-selected={tab === 'transcript'} onClick={() => setTab('transcript')}>
             Transcript
-          </button>
-          <button role="tab" aria-selected={tab === 'email'} onClick={() => setTab('email')}>
-            Email sent
           </button>
         </div>
 
@@ -218,23 +195,6 @@ export function CallDetail({
           </div>
         )}
 
-        {tab === 'email' && (
-          <div className="section">
-            {call.email ? (
-              <>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 10 }}>
-                  <strong style={{ color: 'var(--ink)' }}>{call.email.subject}</strong>
-                  <br />
-                  To {call.email.to} · {call.email.status}
-                  {call.email.sentAt ? ` · ${when(call.email.sentAt)}` : ''}
-                </div>
-                <iframe className="emailframe" title="Coaching email" srcDoc={emailHtml} />
-              </>
-            ) : (
-              <div className="empty">No coaching email has been generated for this call yet.</div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
