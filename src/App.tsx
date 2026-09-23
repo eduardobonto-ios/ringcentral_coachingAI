@@ -23,7 +23,6 @@ export default function App() {
   // equivalent role from the signed-in profile (see `role` below).
   const [cosmeticRole, setCosmeticRole] = useState<'employee' | 'manager' | 'admin'>('manager');
   const role: 'employee' | 'manager' | 'admin' = isDemo ? cosmeticRole : viewMode === 'staff' ? 'employee' : viewMode;
-  const [coachingRequested, setCoachingRequested] = useState(false);
   // Real Valveman figures (confirmed 2026-09-18): 8 agents, ~4hrs of calls/day each at a
   // 20-25min average call length -> ~11 calls/agent/day. Still editable in the UI.
   const [callsPerAgentDay, setCallsPerAgentDay] = useState(11);
@@ -263,18 +262,10 @@ export default function App() {
         </div>
       </div>
 
-      <section className="daily-banner">
-        <div>
-          <div className="eyebrow">Daily coaching rhythm</div>
-          <h2>Notice patterns across the day, then choose one next step.</h2>
-          <p>Individual calls are evidence for coaching, not a verdict. Employees can request their own view and revisit any conversation.</p>
-        </div>
-        <button className="primary-action" onClick={() => setCoachingRequested((v) => !v)}>
-          {coachingRequested ? 'Hide coaching view' : 'Request coaching'}
-        </button>
-      </section>
-
-      {coachingRequested && !isDemo && (
+      {/* The calendar is always open. It used to sit behind a "Request coaching" toggle that reset
+          on every page load, which hid the one thing an agent signs in to do behind a button that
+          gave no hint of what was under it. */}
+      {!isDemo && (
         <RequestCoaching
           onCoached={async (callId) => {
             // A newly coached call is not in the list yet, so refresh before selecting it.
@@ -284,7 +275,7 @@ export default function App() {
         />
       )}
 
-      {coachingRequested && <DailyCoachingPanel rollups={rollups} showAgentName={role !== 'employee'} />}
+      <DailyCoachingPanel rollups={rollups} showAgentName={role !== 'employee'} />
 
       {/* Cost modelling is a planning tool for whoever owns the spend, not something an
           agent or manager acts on — admins only. */}
@@ -353,7 +344,9 @@ export default function App() {
           <CallDetail
             call={detail}
             dimensions={dimensions}
-            onCoach={() => setCoachingRequested(true)}
+            // The coaching panel is always rendered now, so there is nothing to open — take
+            // the person to it instead.
+            onCoach={() => document.getElementById('request-coaching')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             onAnalyzed={async () => {
               await load();
               const fresh = await api.call(detail.id).catch(() => null);

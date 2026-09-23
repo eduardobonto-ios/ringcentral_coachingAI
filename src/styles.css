@@ -126,16 +126,6 @@ body {
 .stat .v.access-stat { font-size: 17px; }
 .stat-note { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
 
-/* daily coaching banner */
-.daily-banner {
-  display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
-  background: var(--surface); padding: 14px 18px; margin-bottom: 12px;
-  border-radius: var(--radius); box-shadow: var(--shadow);
-  border-left: 3px solid var(--accent);
-}
-.daily-banner h2 { margin: 3px 0 4px; font-size: 15.5px; font-weight: 660; letter-spacing: -0.01em; }
-.daily-banner p { margin: 0; max-width: 62ch; font-size: 13px; color: var(--muted); line-height: 1.5; }
-
 .primary-action {
   font: 600 13px/1 inherit; padding: 11px 18px; background: var(--accent); color: #fff;
   border: none; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap;
@@ -358,41 +348,51 @@ iframe.emailframe { width: 100%; height: 620px; border: none; background: #fff; 
 }
 .coaching-request-row .primary-action { margin-top: 4px; }
 
-/* Month grid. Replaces <input type='date'>, whose native popup cannot carry per-day counts. */
+/* Month grid. Replaces <input type='date'>, whose native popup cannot carry per-day counts.
+ *
+ * The month bar is the brand blue and bleeds to the card's edges, so the calendar reads as one
+ * object rather than a form control that happens to live in a panel. */
 .coaching-calendar {
   border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
-  padding: 14px; width: 306px;
+  width: 272px; overflow: hidden; box-shadow: var(--shadow);
 }
 .cal-head {
-  display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%);
+  color: #fff;
 }
-.cal-head strong { font-size: 14px; color: var(--ink); }
+.cal-head strong { font-size: 13.5px; font-weight: 640; letter-spacing: -0.01em; }
 .cal-nav {
-  border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
-  border-radius: var(--radius-sm); width: 28px; height: 28px; font-size: 15px; line-height: 1;
-  cursor: pointer;
+  /* Translucent white rather than a solid chip: on the blue bar a filled button would compete
+     with the month name for attention. */
+  border: 1px solid rgba(255, 255, 255, 0.28); background: rgba(255, 255, 255, 0.12);
+  color: #fff; border-radius: 7px; width: 24px; height: 24px; font-size: 14px; line-height: 1;
+  cursor: pointer; transition: background .12s, opacity .12s;
 }
-.cal-nav:hover:not(:disabled) { background: var(--surface-2); border-color: var(--accent-line); }
+.cal-nav:hover:not(:disabled) { background: rgba(255, 255, 255, 0.26); }
 .cal-nav:disabled { opacity: 0.35; cursor: default; }
 
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-body { padding: 10px 12px 12px; }
+
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
 .cal-weekday {
-  text-align: center; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--muted-2); padding-bottom: 6px;
+  text-align: center; font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted-2); padding-bottom: 5px;
 }
 
 .cal-day {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px;
-  padding: 5px 0 4px; border: 1px solid transparent; border-radius: var(--radius-sm);
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  padding: 4px 0 3px; border: 1px solid transparent; border-radius: 7px;
   background: none; font: inherit; cursor: pointer; color: var(--ink-2);
 }
 .cal-day:hover:not(:disabled) { background: var(--surface-2); }
-.cal-num { font-size: 13px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.cal-num { font-size: 12px; font-variant-numeric: tabular-nums; line-height: 1.2; }
 
 /* The badge line is always rendered, even when blank, so days do not change height as counts
    load in and the grid does not jump. */
 .cal-badge {
-  font-size: 10px; line-height: 1.1; min-height: 12px; font-variant-numeric: tabular-nums;
+  font-size: 9.5px; line-height: 1.1; min-height: 11px; font-variant-numeric: tabular-nums;
   color: var(--muted-2);
 }
 .cal-day.has-calls { color: var(--ink); }
@@ -409,14 +409,14 @@ iframe.emailframe { width: 100%; height: 620px; border: none; background: #fff; 
    choosing a day is how much is left to review, not how much is done. */
 .cal-coached {
   display: block; width: 4px; height: 4px; border-radius: 50%; background: var(--ok);
-  position: absolute; top: 4px; right: 4px;
+  position: absolute; top: 3px; right: 3px;
 }
-.cal-legend .cal-coached { position: static; display: inline-block; margin-right: 4px; }
+.cal-legend .cal-coached { position: static; display: inline-block; margin-right: 3px; }
 .cal-day.is-selected .cal-coached { background: #fff; }
 
 .cal-legend {
-  display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; padding-top: 10px;
-  border-top: 1px solid var(--line-soft); font-size: 11px; color: var(--muted);
+  display: flex; flex-wrap: wrap; gap: 3px 10px; margin-top: 9px; padding-top: 9px;
+  border-top: 1px solid var(--line-soft); font-size: 10.5px; color: var(--muted);
 }
 .cal-legend b { color: var(--accent); }
 

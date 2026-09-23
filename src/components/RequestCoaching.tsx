@@ -54,7 +54,7 @@ export function RequestCoaching({ onCoached }: { onCoached: (callId: string) => 
   }
 
   return (
-    <section className="panel coaching-panel">
+    <section className="panel coaching-panel" id="request-coaching">
       <div className="eyebrow">Request coaching</div>
       <div className="coaching-request-row">
         <CoachingCalendar

@@ -92,6 +92,7 @@ export function CoachingCalendar({
         </button>
       </div>
 
+      <div className="cal-body">
       <div className="cal-grid">
         {WEEKDAYS.map((d, i) => (
           <div key={i} className="cal-weekday">
@@ -148,6 +149,7 @@ export function CoachingCalendar({
             <span>· not indexed yet</span>
           </>
         )}
+      </div>
       </div>
     </div>
   );
