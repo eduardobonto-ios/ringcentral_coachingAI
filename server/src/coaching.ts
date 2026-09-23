@@ -189,3 +189,143 @@ export async function analyzeCall(opts: {
     },
   };
 }
+
+// --- day-level coaching ----------------------------------------------------------------------
+//
+// One reflection over a day's calls, rather than a tally of per-call feedback.
+//
+// The per-call analysis answers "how did this call go". An agent making twenty calls a day
+// cannot act on twenty of those, and the thing worth acting on is usually the pattern across
+// them — which a frequency count over strength titles cannot find, because it can only surface
+// a label that already appeared, never the connection between two differently-worded ones.
+
+export type DaySummary = {
+  headline: string;
+  pattern: string;
+  keepDoing: { title: string; detail: string };
+  focusOn: { title: string; detail: string };
+  practiceAction: string;
+};
+
+const DAY_TOOL = {
+  name: 'submit_day_coaching',
+  description: "Submit one day's coaching for an agent, drawn from that day's individual call analyses.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      headline: { type: 'string', description: 'One sentence characterising the day, addressed to the agent.' },
+      pattern: {
+        type: 'string',
+        description: 'The thread running through the day that no single call would show on its own. Say plainly if the calls have little in common.',
+      },
+      keepDoing: {
+        type: 'object',
+        properties: { title: { type: 'string' }, detail: { type: 'string' } },
+        required: ['title', 'detail'],
+      },
+      focusOn: {
+        type: 'object',
+        properties: { title: { type: 'string' }, detail: { type: 'string' } },
+        required: ['title', 'detail'],
+      },
+      practiceAction: { type: 'string', description: 'One concrete thing to practise tomorrow.' },
+    },
+    required: ['headline', 'pattern', 'keepDoing', 'focusOn', 'practiceAction'],
+  },
+} as const;
+
+function buildDayPrompt(opts: {
+  agentName: string;
+  date: string;
+  reviewed: number;
+  total: number;
+  analyses: Analysis[];
+}): string {
+  const calls = opts.analyses
+    .map((a, i) => {
+      const strengths = a.strengths.map((s) => `${s.title}: ${s.detail}`).join('; ');
+      const improvements = a.improvements.map((m) => `${m.title}: ${m.detail}`).join('; ');
+      return `Call ${i + 1} (outcome: ${a.outcome ?? 'unknown'})\n  Went well: ${strengths || 'nothing noted'}\n  Could improve: ${improvements || 'nothing noted'}\n  Suggested practice: ${a.practiceAction}`;
+    })
+    .join('\n\n');
+
+  // The sample size goes in the prompt because it changes what can honestly be claimed: three
+  // calls out of twenty support "in these calls", not "your day".
+  return `You are writing one day's coaching for ${opts.agentName} for ${opts.date}.
+
+This is drawn from ${opts.reviewed} reviewed call${opts.reviewed === 1 ? '' : 's'} out of ${opts.total} they took that day. Do not describe the whole day with more confidence than that sample supports — with a small sample, say what these calls showed rather than what the day was like.
+
+Per-call analyses:
+
+${calls}
+
+Write one reflection for the day, not a list of per-call notes. Look for what connects the calls: a habit that repeats, a situation handled well once and poorly another time, something that only becomes visible across several conversations. If the calls genuinely have nothing in common, say so rather than inventing a theme.
+
+Address ${opts.agentName} directly. This is read by them, so be specific and candid about what to change without being contemptuous. No scores, no grades, no ranking — this is a conversation about the work, not a verdict on it.`;
+}
+
+async function runDayAnthropic(prompt: string): Promise<any> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+  const msg = await client.messages.create({
+    model: process.env.ANTHROPIC_COACHING_MODEL || 'claude-sonnet-5',
+    max_tokens: 2048,
+    tools: [DAY_TOOL],
+    tool_choice: { type: 'tool', name: 'submit_day_coaching' },
+    messages: [{ role: 'user', content: prompt }],
+  });
+  const toolUse = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
+  if (!toolUse) throw new Error('Model did not return a day summary.');
+  return toolUse.input;
+}
+
+async function runDayOpenAI(prompt: string): Promise<any> {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: process.env.OPENAI_COACHING_MODEL || 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      tools: [
+        {
+          type: 'function',
+          function: { name: DAY_TOOL.name, description: DAY_TOOL.description, parameters: DAY_TOOL.input_schema },
+        },
+      ],
+      tool_choice: { type: 'function', function: { name: DAY_TOOL.name } },
+    }),
+  });
+
+  if (!res.ok) throw new Error(`OpenAI day coaching ${res.status}: ${await res.text()}`);
+  const json: any = await res.json();
+  const call = json.choices?.[0]?.message?.tool_calls?.[0];
+  if (!call?.function?.arguments) throw new Error('Model did not return a day summary.');
+
+  try {
+    return JSON.parse(call.function.arguments);
+  } catch {
+    throw new Error('Model returned malformed JSON for the day summary.');
+  }
+}
+
+/** One model call over a day's analyses. Cheap next to transcription — it reads summaries, not audio. */
+export async function synthesizeDay(opts: {
+  agentName: string;
+  date: string;
+  reviewed: number;
+  total: number;
+  analyses: Analysis[];
+}): Promise<DaySummary> {
+  if (opts.analyses.length === 0) throw new Error('No analysed calls to summarise for this day.');
+
+  const provider = chosenProvider();
+  const prompt = buildDayPrompt(opts);
+  const result = provider === 'anthropic' ? await runDayAnthropic(prompt) : await runDayOpenAI(prompt);
+
+  return {
+    headline: result.headline,
+    pattern: result.pattern,
+    keepDoing: result.keepDoing,
+    focusOn: result.focusOn,
+    practiceAction: result.practiceAction,
+  };
+}

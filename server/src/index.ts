@@ -13,6 +13,7 @@ import { startWeeklyReportCron } from './weeklyReport.js';
 import { startRingCentralSyncCron } from './ringcentralSync.js';
 import { listCallsForDay, coachOneCall } from './ringcentralOnDemand.js';
 import { monthOverview, indexRecentDays, startDayIndexCron } from './callDayIndex.js';
+import { coachDay, readDayCoaching, DAY_SAMPLE_SIZE } from './dailyCoaching.js';
 import { requireAuth, canAccessAgentEmail, departmentByEmail } from './auth.js';
 import { signedRecordingUrl } from './storage.js';
 
@@ -239,6 +240,46 @@ app.post('/api/ringcentral/coach', async (req, res) => {
   } catch (e) {
     const message = (e as Error).message;
     res.status(/not available to coach/.test(message) ? 403 : 500).json({ error: message });
+  }
+});
+
+// --- day-level coaching --------------------------------------------------------------------
+//
+// The day is what this tool is actually about: an agent taking twenty calls cannot act on twenty
+// pieces of feedback, but they can act on the thread running through them. Coaching a whole day
+// means transcribing every call in it, so a sample is taken and the summary says how big it was.
+
+app.get('/api/coaching/day', async (req, res) => {
+  try {
+    const date = String(req.query.date ?? '');
+    res.json(await readDayCoaching({ date, email: req.user!.email }));
+  } catch (e) {
+    const message = (e as Error).message;
+    res.status(/^Invalid date/.test(message) ? 400 : 500).json({ error: message });
+  }
+});
+
+app.post('/api/coaching/day', async (req, res) => {
+  try {
+    const { date, limit } = req.body ?? {};
+    if (!date) return res.status(400).json({ error: 'date is required' });
+
+    // Capped server-side: this endpoint spends money per call, so the client cannot ask for a
+    // hundred by editing the request.
+    const requested = Number(limit);
+    const safeLimit = Number.isFinite(requested) ? Math.min(Math.max(1, requested), DAY_SAMPLE_SIZE) : DAY_SAMPLE_SIZE;
+
+    res.json(
+      await coachDay({
+        date: String(date),
+        email: req.user!.email,
+        isAdmin: req.user!.role === 'admin',
+        limit: safeLimit,
+      }),
+    );
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: (e as Error).message });
   }
 });
 

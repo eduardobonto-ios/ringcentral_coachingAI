@@ -3,6 +3,7 @@ import { api, isDemo, mmss, when, type CallSummary, type CallDetail as Detail, t
 import { CallDetail } from './components/CallDetail';
 import { DailyCoachingPanel } from './components/DailyCoachingPanel';
 import { RequestCoaching } from './components/RequestCoaching';
+import { DayCoaching } from './components/DayCoaching';
 import { Login } from './components/Login';
 import { buildDailyRollup, latestDayKey, summarizeTrend, type DailyRollup } from './dailyRollup';
 import { useAuth } from './useAuth';
@@ -23,6 +24,11 @@ export default function App() {
   // equivalent role from the signed-in profile (see `role` below).
   const [cosmeticRole, setCosmeticRole] = useState<'employee' | 'manager' | 'admin'>('manager');
   const role: 'employee' | 'manager' | 'admin' = isDemo ? cosmeticRole : viewMode === 'staff' ? 'employee' : viewMode;
+  // The calendar's selected day, shared by the call list and the day summary under it.
+  const [coachingDate, setCoachingDate] = useState(() =>
+    new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }),
+  );
+  const [dayKey, setDayKey] = useState(0);
   // Real Valveman figures (confirmed 2026-09-18): 8 agents, ~4hrs of calls/day each at a
   // 20-25min average call length -> ~11 calls/agent/day. Still editable in the UI.
   const [callsPerAgentDay, setCallsPerAgentDay] = useState(11);
@@ -266,16 +272,25 @@ export default function App() {
           on every page load, which hid the one thing an agent signs in to do behind a button that
           gave no hint of what was under it. */}
       {!isDemo && (
-        <RequestCoaching
-          onCoached={async (callId) => {
-            // A newly coached call is not in the list yet, so refresh before selecting it.
-            await load();
-            setSelected(callId);
-          }}
-        />
+        <>
+          <RequestCoaching
+            date={coachingDate}
+            onDateChange={setCoachingDate}
+            onCoached={async (callId) => {
+              // A newly coached call is not in the list yet, so refresh before selecting it.
+              await load();
+              setSelected(callId);
+              // The day summary was written from a smaller sample; let it re-read its counts.
+              setDayKey((k) => k + 1);
+            }}
+          />
+          <DayCoaching date={coachingDate} refreshKey={dayKey} />
+        </>
       )}
 
-      <DailyCoachingPanel rollups={rollups} showAgentName={role !== 'employee'} />
+      {/* Managers and admins still get the per-agent tally across their people; the day summary
+          above is the signed-in person's own. */}
+      {role !== 'employee' && <DailyCoachingPanel rollups={rollups} showAgentName />}
 
       {/* Cost modelling is a planning tool for whoever owns the spend, not something an
           agent or manager acts on — admins only. */}

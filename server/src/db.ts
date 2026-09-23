@@ -255,3 +255,60 @@ export async function listCoachedInWindow(fromIso: string, toIso: string): Promi
 
   return (data ?? []).map((r: any) => ({ recorded_at: r.recorded_at, agent_email: one<any>(r.agents)?.email ?? '' }));
 }
+
+// --- day-level coaching ----------------------------------------------------------------------
+
+export type StoredDaySummary = {
+  day: string;
+  agent_email: string;
+  summary_json: any;
+  calls_reviewed: number;
+  calls_total: number;
+  generated_at: string;
+};
+
+export async function upsertDaySummary(row: Omit<StoredDaySummary, 'generated_at'>) {
+  assertConfigured();
+  const { error } = await supabaseAdmin
+    .from('daily_coaching')
+    .upsert({ ...row, generated_at: new Date().toISOString() }, { onConflict: 'day,agent_email' });
+  if (error) throw new Error(`upsertDaySummary failed: ${error.message}`);
+}
+
+export async function getDaySummary(day: string, agentEmail: string): Promise<StoredDaySummary | undefined> {
+  assertConfigured();
+  const { data, error } = await supabaseAdmin
+    .from('daily_coaching')
+    .select('day, agent_email, summary_json, calls_reviewed, calls_total, generated_at')
+    .eq('day', day)
+    .ilike('agent_email', agentEmail)
+    .maybeSingle();
+  if (error) throw new Error(`getDaySummary failed: ${error.message}`);
+  return (data as StoredDaySummary) ?? undefined;
+}
+
+/**
+ * The analysed calls behind one agent's day, oldest first.
+ *
+ * Ordered by time because the day summary is asked to look for a thread across the calls, and
+ * "started strong, drifted after lunch" is only visible if they arrive in the order they happened.
+ */
+export async function listDayAnalyses(
+  fromIso: string,
+  toIso: string,
+  agentEmail: string,
+): Promise<{ id: string; analysis: any }[]> {
+  assertConfigured();
+  const { data, error } = await supabaseAdmin
+    .from('calls')
+    .select('id, analysis_json, recorded_at, agents!inner(email)')
+    .gte('recorded_at', fromIso)
+    .lt('recorded_at', toIso)
+    .not('analysis_json', 'is', null)
+    .order('recorded_at', { ascending: true });
+  if (error) throw new Error(`listDayAnalyses failed: ${error.message}`);
+
+  return (data ?? [])
+    .filter((r: any) => (one<any>(r.agents)?.email ?? '').toLowerCase() === agentEmail.toLowerCase())
+    .map((r: any) => ({ id: r.id, analysis: r.analysis_json }));
+}

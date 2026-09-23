@@ -22,9 +22,17 @@ const LONG_DATE = (date: string) =>
     timeZone: 'UTC',
   });
 
-export function RequestCoaching({ onCoached }: { onCoached: (callId: string) => void }) {
+export function RequestCoaching({
+  date,
+  onDateChange,
+  onCoached,
+}: {
+  /** Owned by App so the day summary below reacts to the same calendar. */
+  date: string;
+  onDateChange: (date: string) => void;
+  onCoached: (callId: string) => void;
+}) {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
-  const [date, setDate] = useState(today);
   const [calls, setCalls] = useState<RingCentralCallOption[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -81,7 +89,7 @@ export function RequestCoaching({ onCoached }: { onCoached: (callId: string) => 
             max={today}
             refreshKey={calendarKey}
             onChange={(d) => {
-              setDate(d);
+              onDateChange(d);
               // The listing on screen belongs to the previous day; clearing it avoids showing one
               // day's calls under another day's heading.
               setCalls(null);

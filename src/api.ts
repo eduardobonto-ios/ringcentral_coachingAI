@@ -185,6 +185,56 @@ export const ringcentral = {
   },
 };
 
+export type DaySummary = {
+  headline: string;
+  pattern: string;
+  keepDoing: { title: string; detail: string };
+  focusOn: { title: string; detail: string };
+  practiceAction: string;
+};
+
+export type DayCoachingResult = {
+  date: string;
+  summary: DaySummary | null;
+  /** Calls the summary was actually drawn from. */
+  callsReviewed: number;
+  /** Coachable calls the agent took that day, from the call-log index. */
+  callsTotal: number;
+  newlyCoached: number;
+  moreAvailable: boolean;
+  errors: string[];
+};
+
+const EMPTY_DAY = (date: string): DayCoachingResult => ({
+  date,
+  summary: null,
+  callsReviewed: 0,
+  callsTotal: 0,
+  newlyCoached: 0,
+  moreAvailable: false,
+  errors: [],
+});
+
+/**
+ * Day-level coaching. Reading is free; coaching a day transcribes a sample of its calls, so it
+ * costs money and takes a couple of minutes.
+ */
+export const coaching = {
+  day: (date: string) =>
+    seed ? Promise.resolve(EMPTY_DAY(date)) : get<DayCoachingResult>(`/api/coaching/day?date=${date}`),
+
+  coachDay: async (date: string) => {
+    if (seed) throw new Error('This is a read-only preview — run the server to coach a day.');
+    const res = await fetch(apiUrl('/api/coaching/day'), {
+      method: 'POST',
+      headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date }),
+    });
+    if (!res.ok) throw new Error(((await res.json().catch(() => null)) as any)?.error ?? (await res.text()));
+    return res.json() as Promise<DayCoachingResult>;
+  },
+};
+
 export const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 export const when = (iso: string) =>
