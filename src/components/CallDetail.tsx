@@ -97,6 +97,9 @@ export function CallDetail({
           </button>
         </div>
 
+        {/* Only the tab body scrolls: the call's identity and the tab strip stay put, so you
+            never lose track of which call you are reading while moving through a transcript. */}
+        <div className="detail-scroll">
         {tab === 'coaching' && a && (
           <>
             <div className="section">
@@ -202,6 +205,7 @@ export function CallDetail({
           </div>
         )}
 
+        </div>
       </div>
     </div>
   );

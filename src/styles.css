@@ -227,7 +227,29 @@ body {
 .pill.risk { color: var(--risk); border-color: var(--risk-line); background: var(--risk-soft); }
 
 /* detail */
-.detail { display: flex; flex-direction: column; gap: 20px; }
+/* Each column scrolls itself, so the page does not.
+ *
+ * The list already capped at 70vh; the detail beside it did not, so a long transcript set the
+ * page height and reading it scrolled the list, the calendar and the day summary off screen. */
+.detail { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.detail > .panel { display: flex; flex-direction: column; max-height: 70vh; }
+.detail-scroll { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.detail-scroll::-webkit-scrollbar { width: 9px; }
+.detail-scroll::-webkit-scrollbar-thumb {
+  background: var(--line); border-radius: 999px; border: 2px solid var(--surface);
+}
+.detail-scroll::-webkit-scrollbar-thumb:hover { background: var(--muted-2); }
+.detail-scroll { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+/* The head and the tab strip are fixed, so neither may shrink when the body grows. */
+.detail-head, .tabs { flex: 0 0 auto; }
+
+.calls { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.calls::-webkit-scrollbar { width: 9px; }
+.calls::-webkit-scrollbar-thumb {
+  background: var(--line); border-radius: 999px; border: 2px solid var(--surface);
+}
+.calls::-webkit-scrollbar-thumb:hover { background: var(--muted-2); }
 .detail-head {
   padding: 24px; display: flex; gap: 24px; flex-wrap: wrap;
   align-items: flex-start; justify-content: space-between;

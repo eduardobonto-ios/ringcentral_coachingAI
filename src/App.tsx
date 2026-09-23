@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, isDemo, mmss, when, type CallSummary, type CallDetail as Detail, type Dimension } from './api';
 import { CallDetail } from './components/CallDetail';
 import { DailyCoachingPanel } from './components/DailyCoachingPanel';
 import { RequestCoaching } from './components/RequestCoaching';
 import { DayCoaching } from './components/DayCoaching';
 import { Login } from './components/Login';
-import { buildDailyRollup, latestDayKey, summarizeTrend, type DailyRollup } from './dailyRollup';
+import { buildDailyRollup, latestDayKey, type DailyRollup } from './dailyRollup';
 import { useAuth } from './useAuth';
 import logo from './assets/valveXwelsford.png';
 
@@ -19,7 +19,6 @@ export default function App() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailsById, setDetailsById] = useState<Record<string, Detail>>({});
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   // Demo build only: a cosmetic switcher since there's no login there. Live mode derives the
   // equivalent role from the signed-in profile (see `role` below).
   const [cosmeticRole, setCosmeticRole] = useState<'employee' | 'manager' | 'admin'>('manager');
@@ -36,7 +35,6 @@ export default function App() {
   const [employees, setEmployees] = useState(8);
   const [transcriptionRate, setTranscriptionRate] = useState(0.006);
   const [analysisRate, setAnalysisRate] = useState(0.012);
-  const fileInput = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     try {
@@ -80,27 +78,11 @@ export default function App() {
     };
   }, [calls]);
 
-  const onUpload = async (file: File) => {
-    setUploading(true);
-    try {
-      const { callId } = await api.upload(file);
-      await load();
-      setSelected(callId);
-    } catch (e) {
-      setError(`Upload failed: ${String(e)}`);
-    } finally {
-      setUploading(false);
-      if (fileInput.current) fileInput.current.value = '';
-    }
-  };
-
-  const sent = calls.filter((c) => c.email_status === 'sent' || c.email_status === 'dry-run').length;
   const monthlyCalls = callsPerAgentDay * employees * 22;
   const monthlyMinutes = monthlyCalls * averageMinutes;
   const transcriptionCost = monthlyMinutes * transcriptionRate;
   const analysisCost = monthlyCalls * analysisRate;
   const monthlyCost = transcriptionCost + analysisCost;
-  const currentDay = new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' });
   const accessCopy = role === 'employee'
     ? 'Your coaching and personal trends only'
     : role === 'manager'
@@ -143,9 +125,6 @@ export default function App() {
       .filter((r): r is DailyRollup => r !== null);
   }, [visibleDetails]);
 
-  const teamTrend = useMemo(() => summarizeTrend(rollups), [rollups]);
-  const dailyFocusLabel =
-    teamTrend === 'strong' ? 'On track' : teamTrend === 'mixed' ? 'Mixed' : teamTrend === 'attention' ? 'Needs focus' : '—';
 
   const positionLabel = profile
     ? profile.role === 'admin'
@@ -189,33 +168,6 @@ export default function App() {
             <div className="sub">A daily view for better conversations, not a scorecard</div>
           </div>
         </div>
-        <div>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="audio/*"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void onUpload(f);
-            }}
-          />
-          <button
-            onClick={() => fileInput.current?.click()}
-            disabled={uploading || isDemo}
-            title={isDemo ? 'Read-only preview' : undefined}
-            style={{
-              font: '600 13px/1 inherit',
-              padding: '9px 14px',
-              background: isDemo ? 'var(--surface-2)' : 'var(--accent)',
-              color: isDemo ? 'var(--muted)' : 'var(--ground)',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            {isDemo ? 'Read-only preview' : uploading ? 'Processing…' : 'Upload recording'}
-          </button>
-        </div>
       </div>
 
       {error && (
@@ -245,34 +197,15 @@ export default function App() {
         )}
       </div>
 
-      <div className="stats">
-        <div className="stat">
-          <div className="k">Today · {currentDay}</div>
-          <div className="v">{visibleCalls.length || '—'}</div>
-          <div className="stat-note">conversations available to coach</div>
-        </div>
-        <div className="stat">
-          <div className="k">Coaching ready</div>
-          <div className="v">{sent}</div>
-          <div className="stat-note">shared with the right person</div>
-        </div>
-        <div className="stat">
-          <div className="k">Daily focus</div>
-          <div className="v">{dailyFocusLabel}</div>
-          <div className="stat-note">small steps worth practicing</div>
-        </div>
-        <div className="stat">
-          <div className="k">Access</div>
-          <div className="v access-stat">{role === 'admin' ? 'Full' : role === 'manager' ? 'Team' : 'Mine'}</div>
-          <div className="stat-note">sensitive data boundary</div>
-        </div>
-      </div>
-
       {/* The calendar is always open. It used to sit behind a "Request coaching" toggle that reset
           on every page load, which hid the one thing an agent signs in to do behind a button that
           gave no hint of what was under it. */}
       {!isDemo && (
         <>
+          {/* The day's coaching leads, where four stat tiles used to. Those counted things
+              nobody acts on — how many calls exist, how many emails went out — above the one
+              thing this tool is for. */}
+          <DayCoaching date={coachingDate} refreshKey={dayKey} />
           <RequestCoaching
             date={coachingDate}
             onDateChange={setCoachingDate}
@@ -284,7 +217,6 @@ export default function App() {
               setDayKey((k) => k + 1);
             }}
           />
-          <DayCoaching date={coachingDate} refreshKey={dayKey} />
         </>
       )}
 
