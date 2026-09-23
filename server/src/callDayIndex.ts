@@ -30,6 +30,28 @@ import cron from 'node-cron';
  */
 const DAY_MARKER = '*';
 
+/**
+ * How long today's counts may be served from cache.
+ *
+ * Today is the one day whose count is still changing, and it is also the day agents care about
+ * most. A cached zero written at 02:10 would read as "no calls today" for the whole working day,
+ * which is worse than admitting we do not know — so today is re-indexed on view once this lapses.
+ * Past days never expire: they cannot gain calls.
+ */
+const TODAY_TTL_MS = 10 * 60_000;
+
+/** De-duplicates concurrent refreshes of the same day, so ten open calendars make one RC call. */
+const inFlight = new Map<string, Promise<unknown>>();
+
+function refreshOnce(day: string): Promise<unknown> {
+  const existing = inFlight.get(day);
+  if (existing) return existing;
+
+  const p = indexDay(day).finally(() => inFlight.delete(day));
+  inFlight.set(day, p);
+  return p;
+}
+
 export type DayCount = {
   /** YYYY-MM-DD in Manila. */
   date: string;
@@ -144,7 +166,24 @@ export async function monthOverview(opts: { month: string; email: string; isAdmi
   const { days, from, to } = monthWindow(opts.month);
   const mine = opts.email.toLowerCase();
 
-  const [rows, coachedCalls] = await Promise.all([listDayIndex(days[0], days[days.length - 1]), listCoachedInWindow(from, to)]);
+  let [rows, coachedCalls] = await Promise.all([
+    listDayIndex(days[0], days[days.length - 1]),
+    listCoachedInWindow(from, to),
+  ]);
+
+  // Today's row goes stale as the day goes on, so refresh it before answering. One call-log read,
+  // no audio, and only when this month actually contains today.
+  const today = manilaToday();
+  if (days.includes(today) && isStale(rows, today)) {
+    try {
+      await refreshOnce(today);
+      rows = await listDayIndex(days[0], days[days.length - 1]);
+    } catch (e) {
+      // Report today as unknown rather than serving a count we know is out of date.
+      console.warn(`[day-index] could not refresh ${today}: ${(e as Error).message}`);
+      rows = rows.filter((r) => r.day !== today);
+    }
+  }
 
   const indexed = new Set<string>();
   const coachable = new Map<string, number>();
@@ -186,4 +225,13 @@ export function startDayIndexCron() {
       .then((r) => console.log(`[day-index] refreshed ${r.map((d) => `${d.day}:${d.calls}`).join(' ')}`))
       .catch((e) => console.error('[day-index] refresh failed:', e));
   }, { timezone: TZ });
+}
+
+/** True when a day has never been indexed, or was last indexed longer ago than the TTL allows. */
+export function isStale(rows: { day: string; indexed_at: string }[], day: string): boolean {
+  const seen = rows.filter((r) => r.day === day);
+  if (seen.length === 0) return true;
+
+  const newest = Math.max(...seen.map((r) => new Date(r.indexed_at).getTime()));
+  return !Number.isFinite(newest) || Date.now() - newest > TODAY_TTL_MS;
 }

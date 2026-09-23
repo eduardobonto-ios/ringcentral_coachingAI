@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dayWindow, monthWindow, manilaDayOf, recentDays } from './manilaDay.js';
-import { countByExtension } from './callDayIndex.js';
+import { countByExtension, isStale } from './callDayIndex.js';
 import { extensionIndex } from './ringcentralMap.js';
 import type { RcCallRecord, RcExtension } from './ringcentral.js';
 
@@ -112,4 +112,34 @@ test('two calls by the same agent land in one row, not two', () => {
 
   assert.equal(counts.size, 1);
   assert.equal([...counts.values()][0].count, 2);
+});
+
+// --- freshness of today -------------------------------------------------------------------
+
+test('a day with no rows at all is stale', () => {
+  assert.equal(isStale([], '2026-09-24'), true);
+  assert.equal(isStale([{ day: '2026-09-23', indexed_at: new Date().toISOString() }], '2026-09-24'), true);
+});
+
+test('a day indexed just now is fresh', () => {
+  assert.equal(isStale([{ day: '2026-09-24', indexed_at: new Date().toISOString() }], '2026-09-24'), false);
+});
+
+test('a day indexed this morning is stale by the working afternoon', () => {
+  // The case that motivated this: the 02:10 cron writes a near-empty count for a day that has
+  // barely started, and without expiry that zero would read as "no calls" until tomorrow.
+  const twoHoursAgo = new Date(Date.now() - 2 * 3600_000).toISOString();
+  assert.equal(isStale([{ day: '2026-09-24', indexed_at: twoHoursAgo }], '2026-09-24'), true);
+});
+
+test('freshness follows the newest row, not the first', () => {
+  const rows = [
+    { day: '2026-09-24', indexed_at: new Date(Date.now() - 3 * 3600_000).toISOString() },
+    { day: '2026-09-24', indexed_at: new Date().toISOString() },
+  ];
+  assert.equal(isStale(rows, '2026-09-24'), false);
+});
+
+test('an unparseable timestamp counts as stale rather than fresh', () => {
+  assert.equal(isStale([{ day: '2026-09-24', indexed_at: 'not a date' }], '2026-09-24'), true);
 });

@@ -198,6 +198,7 @@ export async function listRecentAnalyses(days = 7): Promise<{ agent_name: string
 // worth opening without querying RingCentral for a whole month. See supabase/003_call_day_index.sql.
 
 export type DayIndexRow = { day: string; extension_id: string; agent_email: string; coachable_count: number };
+export type DayIndexRowRead = DayIndexRow & { indexed_at: string };
 
 /**
  * Record one day's counts, replacing whatever was there.
@@ -224,15 +225,15 @@ export async function upsertDayIndex(rows: DayIndexRow[]) {
  * come back looking un-indexed to an agent — the exact distinction the index exists to make. A
  * month is a few hundred rows; scoping them in Node is cheaper than getting that wrong.
  */
-export async function listDayIndex(from: string, to: string): Promise<DayIndexRow[]> {
+export async function listDayIndex(from: string, to: string): Promise<DayIndexRowRead[]> {
   assertConfigured();
   const { data, error } = await supabaseAdmin
     .from('call_day_index')
-    .select('day, extension_id, agent_email, coachable_count')
+    .select('day, extension_id, agent_email, coachable_count, indexed_at')
     .gte('day', from)
     .lte('day', to);
   if (error) throw new Error(`listDayIndex failed: ${error.message}`);
-  return (data ?? []) as DayIndexRow[];
+  return (data ?? []) as DayIndexRowRead[];
 }
 
 /**
