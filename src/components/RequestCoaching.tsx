@@ -25,12 +25,13 @@ const LONG_DATE = (date: string) =>
 export function RequestCoaching({
   date,
   onDateChange,
-  onCoached,
+  onOpenCall,
 }: {
   /** Owned by App so the day summary below reacts to the same calendar. */
   date: string;
   onDateChange: (date: string) => void;
-  onCoached: (callId: string) => void;
+  /** `isNew` is true only when this call was just coached, so the caller can skip a reload. */
+  onOpenCall: (callId: string, isNew: boolean) => void;
 }) {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   const [calls, setCalls] = useState<RingCentralCallOption[] | null>(null);
@@ -65,7 +66,7 @@ export function RequestCoaching({
         prev?.map((c) => (c.recordingId === call.recordingId ? { ...c, coached: true, callId } : c)) ?? null,
       );
       setCalendarKey((k) => k + 1);
-      onCoached(callId);
+      onOpenCall(callId, true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -157,7 +158,7 @@ export function RequestCoaching({
                     <td>{c.agentName}</td>
                     <td>
                       {c.coached ? (
-                        <button className="ghost" onClick={() => c.callId && onCoached(c.callId)}>
+                        <button className="ghost" onClick={() => c.callId && onOpenCall(c.callId, false)}>
                           View coaching
                         </button>
                       ) : (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo, mmss, when, type CallSummary, type CallDetail as Detail, type Dimension } from './api';
 import { CallDetail } from './components/CallDetail';
 import { DailyCoachingPanel } from './components/DailyCoachingPanel';
@@ -19,6 +19,8 @@ export default function App() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailsById, setDetailsById] = useState<Record<string, Detail>>({});
   const [detailLoading, setDetailLoading] = useState(false);
+  // A call to scroll to once its row exists — see the reveal effect below.
+  const [revealCallId, setRevealCallId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Demo build only: a cosmetic switcher since there's no login there. Live mode derives the
   // equivalent role from the signed-in profile (see `role` below).
@@ -29,6 +31,7 @@ export default function App() {
     new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }),
   );
   const [dayKey, setDayKey] = useState(0);
+  const conversationsRef = useRef<HTMLDivElement>(null);
   // Real Valveman figures (confirmed 2026-09-18): 8 agents, ~4hrs of calls/day each at a
   // 20-25min average call length -> ~11 calls/agent/day. Still editable in the UI.
   const [callsPerAgentDay, setCallsPerAgentDay] = useState(11);
@@ -53,6 +56,36 @@ export default function App() {
     if (!canLoad) return;
     void load();
   }, [canLoad]);
+
+  /**
+   * Bring a just-picked call into view.
+   *
+   * Coaching a call from the calendar above opens it in the panel far below, which previously
+   * changed nothing the person could see — they were left looking at the list they clicked in.
+   * This scrolls the page to the conversation pair and the row into its own scroller.
+   *
+   * It waits for the row to exist rather than firing once: the call list reloads first, so on the
+   * click itself there is nothing to scroll to. Re-runs on `calls` until the row appears.
+   */
+  useEffect(() => {
+    if (!revealCallId) return;
+    const row = document.querySelector<HTMLElement>(`[data-call-id="${revealCallId}"]`);
+    if (!row) return;
+
+    // The row's own scroller is moved directly. scrollIntoView would walk every scrollable
+    // ancestor, fighting the page scroll below for where the panel should land.
+    //
+    // Measured from rendered positions rather than offsetTop, which is relative to whichever
+    // ancestor happens to be positioned — today that is the document, but one `position:
+    // relative` added to a panel later would silently send this to the wrong row.
+    const list = row.closest<HTMLElement>('ul.calls');
+    if (list) {
+      list.scrollTop += row.getBoundingClientRect().top - list.getBoundingClientRect().top;
+    }
+
+    conversationsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setRevealCallId(null);
+  }, [revealCallId, calls]);
 
   /**
    * Load the selected call, and remember it.
@@ -236,24 +269,27 @@ export default function App() {
 
       {/* The calendar is always open. It used to sit behind a "Request coaching" toggle that reset
           on every page load, which hid the one thing an agent signs in to do behind a button that
-          gave no hint of what was under it. */}
+          gave no hint of what was under it.
+          The day's coaching sits below it, because the calendar is what decides which day it is
+          talking about — reading the summary before seeing the date it belongs to read backwards. */}
       {!isDemo && (
         <>
-          {/* The day's coaching leads, where four stat tiles used to. Those counted things
-              nobody acts on — how many calls exist, how many emails went out — above the one
-              thing this tool is for. */}
-          <DayCoaching date={coachingDate} refreshKey={dayKey} />
           <RequestCoaching
             date={coachingDate}
             onDateChange={setCoachingDate}
-            onCoached={async (callId) => {
-              // A newly coached call is not in the list yet, so refresh before selecting it.
-              await load();
+            onOpenCall={async (callId, isNew) => {
+              if (isNew) {
+                // A newly coached call is not in the list yet, so refresh before selecting it,
+                // and let the day summary re-read its counts. "View coaching" skips both: that
+                // call is already listed, and reloading would only delay showing it.
+                await load();
+                setDayKey((k) => k + 1);
+              }
               setSelected(callId);
-              // The day summary was written from a smaller sample; let it re-read its counts.
-              setDayKey((k) => k + 1);
+              setRevealCallId(callId);
             }}
           />
+          <DayCoaching date={coachingDate} refreshKey={dayKey} />
         </>
       )}
 
@@ -292,7 +328,7 @@ export default function App() {
         </section>
       )}
 
-      <div className="split">
+      <div className="split" ref={conversationsRef}>
         <div className="panel">
           <header>
             <span>Conversations</span>
@@ -305,7 +341,7 @@ export default function App() {
               {[...visibleCalls]
                 .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
                 .map((c) => (
-                  <li key={c.id}>
+                  <li key={c.id} data-call-id={c.id}>
                     <button
                       aria-current={selected === c.id}
                       onClick={() => {
