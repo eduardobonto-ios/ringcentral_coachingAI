@@ -123,6 +123,7 @@ const CALL_DETAIL = {
   id: CALL_ID,
   recorded_at: CALL_SUMMARY.recorded_at,
   duration_sec: CALL_SUMMARY.duration_sec,
+  direction: CALL_SUMMARY.direction,
   status: CALL_SUMMARY.status,
   audio_path: 'sample-call.mp3',
   agent_name: CALL_SUMMARY.agent_name,

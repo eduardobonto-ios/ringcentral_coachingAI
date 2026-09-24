@@ -70,6 +70,13 @@ export function CallDetail({
               {call.agent_name} · {call.agent_role}
               <br />
               {when(call.recorded_at)} · {mmss(call.duration_sec)}
+              {/* Same pill as the call list above, so a call reads the same in both places. */}
+              {call.direction && (
+                <>
+                  {' · '}
+                  <span className={`dir-pill dir-${call.direction}`}>{call.direction}</span>
+                </>
+              )}
             </div>
           </div>
           <div style={{ flex: '1 1 260px', minWidth: 240 }}>

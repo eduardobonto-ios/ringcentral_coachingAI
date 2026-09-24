@@ -31,10 +31,13 @@ export async function processRecording(opts: {
   /** Overrides the COACHING_EMAILS_ENABLED master switch for this one call. `false` always
    *  suppresses; omitted means "follow the switch". */
   sendEmail?: boolean;
-}): Promise<{ callId: string }> {
+}): Promise<{ callId: string; durationSec: number }> {
   await upsertAgent(opts.agent);
   const callId = randomUUID();
   const raw = await transcribe(opts.audioPath);
+  // The recording's own length, which is what the call page plays and times. It is shorter than
+  // the call-log duration for the same call, because recording starts on answer.
+  const durationSec = Math.round(raw.duration);
 
   // The RingCentral sync uploads before calling in; a manual upload arrives as a local temp
   // file and still needs storing. upsert:true makes the double-call harmless.
@@ -60,7 +63,7 @@ export async function processRecording(opts: {
   await insertCall({
     id: callId,
     recorded_at: opts.recordedAt,
-    duration_sec: Math.round(raw.duration),
+    duration_sec: durationSec,
     status,
     source: opts.source,
     direction: opts.direction,
@@ -76,7 +79,7 @@ export async function processRecording(opts: {
     await emailCoaching(callId, opts.agent, opts.recordedAt, turnsForDb, analysis);
   }
 
-  return { callId };
+  return { callId, durationSec };
 }
 
 export async function emailCoaching(callId: string, agent: Agent, recordedAt: string, turns: Turn[], analysis: Analysis) {

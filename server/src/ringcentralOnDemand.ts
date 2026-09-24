@@ -26,6 +26,7 @@ export type CallOption = {
   externalId: string;
   recordingId: string;
   startTime: string;
+  /** Recording length once the call has been coached, otherwise the call-log length. */
   durationSec: number;
   direction: 'inbound' | 'outbound' | 'unknown';
   agentEmail: string;
@@ -79,7 +80,12 @@ export async function listCallsForDay(opts: { date: string; email: string; isAdm
         externalId,
         recordingId: record.recording!.id,
         startTime: record.startTime,
-        durationSec: record.duration,
+        // Two different lengths exist for one call, and they legitimately differ: `record.duration`
+        // is the whole call leg, ringing included, while the recording only starts once someone
+        // answers. A 100s log entry can hold 69s of audio. The call page plays and times the
+        // recording, so once a call is coached this list shows the recording's length too —
+        // otherwise the same call read as two different calls in two places.
+        durationSec: existing?.duration_sec ?? record.duration,
         direction: directionOf(record),
         agentEmail: extension.email,
         agentName: extension.name,
@@ -103,7 +109,7 @@ export async function coachOneCall(opts: {
   recordingId: string;
   email: string;
   isAdmin: boolean;
-}): Promise<{ callId: string; alreadyCoached: boolean }> {
+}): Promise<{ callId: string; alreadyCoached: boolean; durationSec: number }> {
   const { from, to } = dayWindow(opts.date);
   const byExtension = extensionIndex(await fetchExtensionsCached());
   const records = await fetchCallLog({ dateFrom: from, dateTo: to });
@@ -115,7 +121,7 @@ export async function coachOneCall(opts: {
 
   const externalId = externalIdOf(match.record);
   const existing = await findCallByExternalId(externalId);
-  if (existing) return { callId: existing.id, alreadyCoached: true };
+  if (existing) return { callId: existing.id, alreadyCoached: true, durationSec: existing.duration_sec };
 
   const filename = recordingFilename(match.record);
   const audioPath = path.join(AUDIO_DIR, filename);
@@ -123,7 +129,7 @@ export async function coachOneCall(opts: {
 
   try {
     await downloadRecording(match.record.recording!.contentUri, audioPath);
-    const { callId } = await processRecording({
+    const { callId, durationSec } = await processRecording({
       audioPath,
       audioFilename: filename,
       recordedAt: match.record.startTime,
@@ -132,7 +138,7 @@ export async function coachOneCall(opts: {
       agent: toAgent(match.extension),
       externalId,
     });
-    return { callId, alreadyCoached: false };
+    return { callId, alreadyCoached: false, durationSec };
   } finally {
     // Supabase Storage holds the recording now; the local file was only somewhere for the
     // transcription API to read from.

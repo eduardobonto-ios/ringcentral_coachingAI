@@ -61,9 +61,14 @@ export function RequestCoaching({
     setBusyId(call.recordingId);
     setError(null);
     try {
-      const { callId } = await ringcentral.coach(date, call.recordingId);
+      const { callId, durationSec } = await ringcentral.coach(date, call.recordingId);
+      // Length comes back too: until now this row showed the call-log duration, and the coached
+      // call is timed on its recording, which is shorter. Without this the row would disagree
+      // with the call page it just opened.
       setCalls((prev) =>
-        prev?.map((c) => (c.recordingId === call.recordingId ? { ...c, coached: true, callId } : c)) ?? null,
+        prev?.map((c) =>
+          c.recordingId === call.recordingId ? { ...c, coached: true, callId, durationSec } : c,
+        ) ?? null,
       );
       setCalendarKey((k) => k + 1);
       onOpenCall(callId, true);
@@ -151,7 +156,15 @@ export function RequestCoaching({
                 {calls.map((c) => (
                   <tr key={c.recordingId} className={c.coached ? 'is-coached' : ''}>
                     <td>{new Date(c.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                    <td>{mmss(c.durationSec)}</td>
+                    <td
+                      title={
+                        c.coached
+                          ? 'Length of the recording'
+                          : 'Call-log length, ringing included — the recording is shorter'
+                      }
+                    >
+                      {mmss(c.durationSec)}
+                    </td>
                     <td>
                       <span className={`dir-pill dir-${c.direction}`}>{c.direction}</span>
                     </td>

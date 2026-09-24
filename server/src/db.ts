@@ -75,7 +75,7 @@ export async function getCallDetail(id: string) {
   const { data, error } = await supabaseAdmin
     .from('calls')
     .select(
-      'id, recorded_at, duration_sec, status, audio_path, engine, transcript_json, analysis_json,' +
+      'id, recorded_at, duration_sec, direction, status, audio_path, engine, transcript_json, analysis_json,' +
         ' agents!inner(name, email, role), emails(status, to_email, subject, sent_at)',
     )
     .eq('id', id)
@@ -90,6 +90,7 @@ export async function getCallDetail(id: string) {
     id: r.id,
     recorded_at: r.recorded_at,
     duration_sec: r.duration_sec,
+    direction: r.direction,
     status: r.status,
     audio_path: r.audio_path,
     engine: r.engine,
@@ -139,10 +140,21 @@ export async function hasExternalCall(externalId: string): Promise<boolean> {
   return Boolean(data);
 }
 
-/** The stored call for an upstream recording, if it has already been coached. */
-export async function findCallByExternalId(externalId: string): Promise<{ id: string } | undefined> {
+/**
+ * The stored call for an upstream recording, if it has already been coached.
+ *
+ * Carries `duration_sec` because the call log and the recording disagree about how long a call
+ * is — see listCallsForDay — and once we hold the recording, its length is the honest one.
+ */
+export async function findCallByExternalId(
+  externalId: string,
+): Promise<{ id: string; duration_sec: number } | undefined> {
   assertConfigured();
-  const { data, error } = await supabaseAdmin.from('calls').select('id').eq('external_id', externalId).maybeSingle();
+  const { data, error } = await supabaseAdmin
+    .from('calls')
+    .select('id, duration_sec')
+    .eq('external_id', externalId)
+    .maybeSingle();
   if (error) throw new Error(`findCallByExternalId failed: ${error.message}`);
   return data ?? undefined;
 }

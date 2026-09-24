@@ -37,7 +37,10 @@ export type Score = {
 export type CallDetail = {
   id: string;
   recorded_at: string;
+  /** Length of the recording, which is what the player counts — see RingCentralCallOption. */
   duration_sec: number;
+  /** Missing on older baked-in demo seeds, so read it defensively. */
+  direction: string | null;
   status: string;
   audio_path: string;
   audio_url: string;
@@ -141,6 +144,12 @@ export type RingCentralCallOption = {
   externalId: string;
   recordingId: string;
   startTime: string;
+  /**
+   * Recording length for a coached call, call-log length for one that has not been coached yet.
+   * The two differ — the log counts the whole call leg, ringing included, while recording starts
+   * on answer — so a row's length can shrink once it is coached. The shorter number is the audio
+   * the call page actually plays.
+   */
   durationSec: number;
   direction: 'inbound' | 'outbound' | 'unknown';
   agentEmail: string;
@@ -181,7 +190,7 @@ export const ringcentral = {
       body: JSON.stringify({ date, recordingId }),
     });
     if (!res.ok) throw new Error(((await res.json().catch(() => null)) as any)?.error ?? (await res.text()));
-    return res.json() as Promise<{ callId: string; alreadyCoached: boolean }>;
+    return res.json() as Promise<{ callId: string; alreadyCoached: boolean; durationSec: number }>;
   },
 };
 

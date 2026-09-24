@@ -111,6 +111,7 @@ app.get('/api/calls/:id', async (req, res) => {
     id: row.id,
     recorded_at: row.recorded_at,
     duration_sec: row.duration_sec,
+    direction: row.direction,
     status: row.status,
     audio_path: row.audio_path,
     audio_url: await signedRecordingUrl(row.audio_path),

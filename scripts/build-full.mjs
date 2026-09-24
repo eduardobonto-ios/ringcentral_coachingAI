@@ -53,6 +53,7 @@ function buildExtraCall(def, manifestEntry) {
     id: def.id,
     recorded_at: def.recorded_at,
     duration_sec: manifestEntry.duration_sec,
+    direction: summary.direction,
     status: 'analyzed',
     audio_path: `${def.id}.mp3`,
     agent_name: manifestEntry.agent_name,
