@@ -157,36 +157,6 @@ body {
 }
 .coaching-grid p { margin: 0; font-size: 13.5px; color: var(--ink-2); line-height: 1.55; }
 
-/* cost calculator */
-.cost-panel { padding: 22px 24px; margin-bottom: 20px; }
-.cost-intro h2 { margin: 4px 0 6px; font-size: 17px; font-weight: 660; letter-spacing: -0.01em; }
-.cost-intro p { margin: 0 0 18px; max-width: 66ch; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
-.cost-fields {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 14px; margin-bottom: 20px;
-}
-.cost-fields label {
-  display: flex; flex-direction: column; gap: 6px;
-  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted-2);
-}
-.cost-fields input {
-  font: 600 14px/1 inherit; padding: 10px 12px; border: 1px solid var(--line);
-  border-radius: var(--radius-sm); background: var(--surface); color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-.cost-fields input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.cost-result {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px 24px; padding-top: 18px; border-top: 1px solid var(--line);
-}
-.cost-result span {
-  display: block; font-size: 11px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: .08em; color: var(--muted-2);
-}
-.cost-result strong { font-size: 20px; font-weight: 680; font-variant-numeric: tabular-nums; }
-.cost-result .total strong { color: var(--accent); }
-.cost-note { margin-top: 18px; font-size: 12px; color: var(--muted-2); line-height: 1.6; }
-
 /* layout */
 /* Conversations and the call beside it share one row of fixed height, so their boxes start and
  * end together. Previously the list capped its own scroller at 70vh while the detail capped the
