@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { listCallSummaries, getCallDetail, getEmailBody, updateCallAnalysis } from './db.js';
+import { listCallSummaries, getCallDetail, getEmailBody, updateCallAnalysis, listAgentEmails } from './db.js';
 import { DIMENSIONS, RUBRIC_VERSION } from './rubric.js';
 import { processRecording, emailCoaching, coachingEmailsEnabled, type Agent } from './pipeline.js';
 import { analyzeCall } from './coaching.js';
@@ -121,17 +121,22 @@ app.get('/api/rubric', (_req, res) => {
  * Admin only, because nobody else has anything to pick: an agent sees their own calls and a
  * manager their department, both scoped server-side already.
  *
- * Read from RingCentral rather than from `profiles`: calls are attributed by extension, so this
- * is the list of people who can actually have calls to review — a profile with no extension
- * would sit in the picker and always come back empty. The roster is cached for 24h and the day
- * listing loads it anyway, so this costs no extra API call in practice.
+ * Both sources are needed, and neither alone is the answer. The RingCentral roster is every
+ * extension in the company — receptionists, executives, warehouse phones — which is far more
+ * people than are being coached. `profiles` is everyone with a sign-in account, which includes
+ * admins and test logins and says nothing about whose calls exist. The intersection is the real
+ * set: someone in the coaching programme with a phone that records.
+ *
+ * Names come from the roster so the picker reads the same as the AGENT column beside it.
  */
 app.get('/api/agents', async (req, res) => {
   if (req.user!.role !== 'admin') return res.status(403).json({ error: 'Only admins can list agents.' });
   try {
-    const roster = await fetchExtensionsCached();
+    const [roster, agentEmails] = await Promise.all([fetchExtensionsCached(), listAgentEmails()]);
+    const coached = new Set(agentEmails.map((e) => e.toLowerCase()));
     res.json({
       agents: roster
+        .filter((e) => coached.has(e.email.toLowerCase()))
         .map((e) => ({ email: e.email, name: e.name, title: e.jobTitle ?? null }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     });

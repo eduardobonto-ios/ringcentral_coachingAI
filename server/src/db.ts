@@ -31,6 +31,21 @@ export async function upsertAgent(agent: { id: string; name: string; email: stri
   if (error) throw new Error(`upsertAgent failed: ${error.message}`);
 }
 
+/**
+ * Everyone who gets coached: a sign-in account that is not an admin.
+ *
+ * This is what makes "agent" a real set rather than "anyone RingCentral has an extension for".
+ * The account is the thing that matters — coaching is requested by the person it is about, so
+ * someone with no way to sign in is not in the programme, whatever their phone does. Creating an
+ * account with `npm run agents:create` is therefore also what adds someone to this list.
+ */
+export async function listAgentEmails(): Promise<string[]> {
+  assertConfigured();
+  const { data, error } = await supabaseAdmin.from('profiles').select('email').neq('role', 'admin');
+  if (error) throw new Error(`listAgentEmails failed: ${error.message}`);
+  return (data ?? []).map((r: any) => r.email).filter(Boolean);
+}
+
 const SUMMARY_SELECT =
   'id, recorded_at, duration_sec, status, source, direction, analysis_json,' +
   ' agents!inner(name, email, role), emails(status, sent_at, to_email)';
