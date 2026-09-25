@@ -65,6 +65,9 @@ export type CallDetail = {
 
 export type Dimension = { key: string; label: string; weight: number };
 
+/** One row of the admin's agent picker. Comes from the RingCentral roster — see /api/agents. */
+export type AgentOption = { email: string; name: string; title: string | null };
+
 /**
  * Demo mode. When the page is served with a `window.__SEED__` payload baked in
  * (the published preview build), the app reads from that instead of calling the
@@ -107,6 +110,22 @@ async function get<T>(url: string): Promise<T> {
 
 export const isDemo = !!seed;
 
+/**
+ * The server's own explanation of a refusal, whichever shape it used.
+ *
+ * Routes here answer with `{ error }` and others with plain text, and the difference is not
+ * something the person reading the message should have to see — a read-only admin clicking a
+ * coaching button needs the sentence, not `{"error":"…"}`.
+ */
+async function errorText(res: Response): Promise<string> {
+  const body = await res.text();
+  try {
+    return (JSON.parse(body) as { error?: string }).error ?? body;
+  } catch {
+    return body;
+  }
+}
+
 export function audioSrc(call: { id: string; audio_url: string }): string {
   return seed?.audio?.[call.id] ?? call.audio_url;
 }
@@ -117,6 +136,9 @@ export const api = {
     seed ? Promise.resolve(seed.details[id]) : get<CallDetail>(`/api/calls/${id}`),
   rubric: () =>
     seed ? Promise.resolve(seed.rubric) : get<{ version: string; dimensions: Dimension[] }>('/api/rubric'),
+  // Admin-only server-side; 403 for everyone else, which the caller renders as "no picker".
+  agents: () =>
+    seed ? Promise.resolve({ agents: [] as AgentOption[] }) : get<{ agents: AgentOption[] }>('/api/agents'),
   // Fetched (not a plain <iframe src>) because the live route needs a Bearer header, which a
   // src="..." navigation can't send — render the result with <iframe srcDoc>.
   emailHtml: async (id: string): Promise<string> => {
@@ -135,7 +157,7 @@ export const api = {
   analyze: async (id: string) => {
     if (seed) throw new Error('This is a read-only preview — run the server to process new recordings.');
     const res = await fetch(apiUrl(`/api/calls/${id}/analyze`), { method: 'POST', headers: await authHeaders() });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) throw new Error(await errorText(res));
     return res.json() as Promise<{ status: string }>;
   },
 };
@@ -168,19 +190,25 @@ export type DayCount = {
 };
 
 /**
+ * Whose calls to ask for. Only an admin may narrow to someone else; the server ignores it for
+ * everyone else rather than trusting it, so this is presentation, not access control.
+ */
+const agentParam = (agent?: string | null) => (agent ? `&agent=${encodeURIComponent(agent)}` : '');
+
+/**
  * On-demand coaching. Listing a day reads the RingCentral call log and downloads nothing, so it
  * is fast and free; only `coach` costs anything, and only for the call the person picked.
  */
 export const ringcentral = {
-  callsOn: (date: string) =>
+  callsOn: (date: string, agent?: string | null) =>
     seed
       ? Promise.resolve({ date, calls: [] as RingCentralCallOption[] })
-      : get<{ date: string; calls: RingCentralCallOption[] }>(`/api/ringcentral/calls?date=${date}`),
+      : get<{ date: string; calls: RingCentralCallOption[] }>(`/api/ringcentral/calls?date=${date}${agentParam(agent)}`),
 
-  monthOverview: (month: string) =>
+  monthOverview: (month: string, agent?: string | null) =>
     seed
       ? Promise.resolve({ month, days: [] as DayCount[] })
-      : get<{ month: string; days: DayCount[] }>(`/api/ringcentral/month?month=${month}`),
+      : get<{ month: string; days: DayCount[] }>(`/api/ringcentral/month?month=${month}${agentParam(agent)}`),
 
   coach: async (date: string, recordingId: string) => {
     if (seed) throw new Error('This is a read-only preview — run the server to coach a call.');
@@ -229,8 +257,10 @@ const EMPTY_DAY = (date: string): DayCoachingResult => ({
  * costs money and takes a couple of minutes.
  */
 export const coaching = {
-  day: (date: string) =>
-    seed ? Promise.resolve(EMPTY_DAY(date)) : get<DayCoachingResult>(`/api/coaching/day?date=${date}`),
+  day: (date: string, agent?: string | null) =>
+    seed
+      ? Promise.resolve(EMPTY_DAY(date))
+      : get<DayCoachingResult>(`/api/coaching/day?date=${date}${agentParam(agent)}`),
 
   coachDay: async (date: string) => {
     if (seed) throw new Error('This is a read-only preview — run the server to coach a day.');

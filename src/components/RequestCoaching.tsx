@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ringcentral, mmss, type RingCentralCallOption } from '../api';
+import { useEffect, useState } from 'react';
+import { api, ringcentral, mmss, type AgentOption, type RingCentralCallOption } from '../api';
 import { CoachingCalendar } from './CoachingCalendar';
 
 /**
@@ -12,6 +12,10 @@ import { CoachingCalendar } from './CoachingCalendar';
  *
  * Listing a day is free: it reads the call log and downloads no audio. Coaching one call
  * downloads, transcribes and analyses just that recording, which is why it is a per-row action.
+ *
+ * An admin gets one thing more and one thing less: a picker for whose calls to read, and no way
+ * to coach any of them (see requireCoachingRights in server/src/auth.ts). Reviewing someone
+ * else's work is not the same act as asking for feedback on your own.
  */
 
 const LONG_DATE = (date: string) =>
@@ -22,30 +26,57 @@ const LONG_DATE = (date: string) =>
     timeZone: 'UTC',
   });
 
+/** "my calls" is wrong for an admin: the calls they are looking at are somebody else's. */
+const SHOW_LABEL = (isAdmin: boolean) => (isAdmin ? 'Show calls' : 'Show my calls');
+
 export function RequestCoaching({
   date,
   onDateChange,
+  agent,
+  onAgentChange,
+  isAdmin,
   onOpenCall,
 }: {
   /** Owned by App so the day summary below reacts to the same calendar. */
   date: string;
   onDateChange: (date: string) => void;
+  /** Admin only: whose calls to show, or null for everyone. Owned by App for the same reason. */
+  agent: string | null;
+  onAgentChange: (agent: string | null) => void;
+  /** Admins pick an agent and read; everyone else coaches their own calls. */
+  isAdmin: boolean;
   /** `isNew` is true only when this call was just coached, so the caller can skip a reload. */
   onOpenCall: (callId: string, isNew: boolean) => void;
 }) {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   const [calls, setCalls] = useState<RingCentralCallOption[] | null>(null);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Coaching a call changes that day's "already coached" badge, so the calendar has to re-read.
   const [calendarKey, setCalendarKey] = useState(0);
 
+  // The roster is the one thing here that is not about the selected day, so it loads once.
+  // A failure leaves the picker on "All agents" rather than blocking the panel: the day listing
+  // an admin came for works without it.
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    void api
+      .agents()
+      .then((r) => !cancelled && setAgents(r.agents))
+      .catch(() => !cancelled && setAgents([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
+
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const { calls } = await ringcentral.callsOn(date);
+      const { calls } = await ringcentral.callsOn(date, agent);
       setCalls(calls);
       // Listing a day also indexes it server-side, so the badge for this day is now known.
       setCalendarKey((k) => k + 1);
@@ -84,8 +115,10 @@ export function RequestCoaching({
   return (
     <section className="panel request-panel">
       <header>
-        <span>Request coaching</span>
-        <span className="request-head-note">Pick a day, then choose a call</span>
+        <span>{isAdmin ? 'Review coaching' : 'Request coaching'}</span>
+        <span className="request-head-note">
+          {isAdmin ? 'Pick an agent and a day' : 'Pick a day, then choose a call'}
+        </span>
       </header>
 
       <div className="request-body">
@@ -93,6 +126,7 @@ export function RequestCoaching({
           <CoachingCalendar
             value={date}
             max={today}
+            agent={agent}
             refreshKey={calendarKey}
             onChange={(d) => {
               onDateChange(d);
@@ -117,9 +151,34 @@ export function RequestCoaching({
                 </div>
               )}
             </div>
-            <button className="primary-action" onClick={load} disabled={loading}>
-              {loading ? 'Loading…' : calls ? 'Refresh' : 'Show my calls'}
-            </button>
+            <div className="request-head-actions">
+              {/* Only an admin has anyone to choose between — see /api/agents. */}
+              {isAdmin && (
+                <label className="agent-picker">
+                  <span>Agent</span>
+                  <select
+                    value={agent ?? ''}
+                    onChange={(e) => {
+                      onAgentChange(e.target.value || null);
+                      // Same reason as changing the day: what is on screen belongs to the person
+                      // who was selected a moment ago.
+                      setCalls(null);
+                      setError(null);
+                    }}
+                  >
+                    <option value="">All agents</option>
+                    {agents.map((a) => (
+                      <option key={a.email} value={a.email}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <button className="primary-action" onClick={load} disabled={loading}>
+                {loading ? 'Loading…' : calls ? 'Refresh' : SHOW_LABEL(isAdmin)}
+              </button>
+            </div>
           </div>
 
           {error && <div className="request-error">{error}</div>}
@@ -127,7 +186,7 @@ export function RequestCoaching({
           {!calls && !error && (
             <div className="request-placeholder">
               Nothing loaded yet. Days carrying a number have calls worth reviewing — pick one, then
-              press <strong>Show my calls</strong>.
+              press <strong>{SHOW_LABEL(isAdmin)}</strong>.
             </div>
           )}
 
@@ -174,6 +233,10 @@ export function RequestCoaching({
                         <button className="ghost" onClick={() => c.callId && onOpenCall(c.callId, false)}>
                           View coaching
                         </button>
+                      ) : isAdmin ? (
+                        // Not a disabled button: nothing an admin can do makes it clickable, and a
+                        // greyed-out control reads as "try again later".
+                        <span className="row-note">Not coached yet</span>
                       ) : (
                         <button className="ghost" onClick={() => coach(c)} disabled={busyId !== null}>
                           {busyId === c.recordingId ? 'Coaching…' : 'Coach this call'}

@@ -7,10 +7,13 @@ const scoreColor = (n: number) =>
 export function CallDetail({
   call,
   dimensions,
+  readOnly = false,
   onAnalyzed,
 }: {
   call: Detail;
   dimensions: Dimension[];
+  /** Admins read coaching that exists; requesting it is the agent's own call. */
+  readOnly?: boolean;
   onAnalyzed: () => void | Promise<void>;
 }) {
   const [tab, setTab] = useState<'coaching' | 'transcript'>('coaching');
@@ -84,10 +87,15 @@ export function CallDetail({
             <audio ref={audio} controls preload="metadata" src={audioSrc(call)} />
             {/* No button once coaching exists: it only re-selected a tab whose content was
                 already visible below, duplicating "Coach this call" in the list above. */}
-            {!a && (
+            {!a && !readOnly && (
               <button className="primary-action call-action" onClick={handleAnalyze} disabled={analyzing}>
                 {analyzing ? 'Analyzing…' : 'Get coaching for this call'}
               </button>
+            )}
+            {!a && readOnly && (
+              <div className="call-action-note">
+                No coaching for this call yet. The recording and transcript are here to read.
+              </div>
             )}
             {analyzeError && (
               <div style={{ fontSize: 12, color: 'var(--risk)', marginTop: 6 }}>{analyzeError}</div>

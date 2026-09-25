@@ -406,6 +406,25 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 .request-summary { margin-top: 4px; font-size: 12.5px; color: var(--muted); }
 
+/* The agent picker sits with the load button, not with the date: both answer "what am I asking
+   for", while the calendar on the left is already answering "when". Admins only. */
+.request-head-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.agent-picker { display: flex; align-items: center; gap: 8px; }
+.agent-picker > span {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted-2);
+}
+.agent-picker select {
+  font: 500 13px/1 inherit; padding: 9px 12px; color: var(--ink-2);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  cursor: pointer; max-width: 190px;
+}
+.agent-picker select:hover { border-color: var(--muted-2); }
+
+/* Says why there is no button here, in the space the button would have taken. */
+.row-note { font-size: 12.5px; color: var(--muted-2); }
+.call-action-note { margin-top: 14px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+
 /* One shared box for "nothing yet", "nothing here" and "that failed", so the right column is
    never blank — an empty half-panel is what made this read as unfinished. */
 .request-placeholder, .request-error, .request-busy {

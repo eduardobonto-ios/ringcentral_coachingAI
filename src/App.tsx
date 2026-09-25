@@ -30,6 +30,12 @@ export default function App() {
   const [coachingDate, setCoachingDate] = useState(() =>
     new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }),
   );
+  /**
+   * Which agent an admin is reading, or null for everyone. Lives here, not in the calendar
+   * panel, because it scopes the whole page: the day's calls, the day summary, and the
+   * conversation list below them are all "who am I looking at".
+   */
+  const [agentEmail, setAgentEmail] = useState<string | null>(null);
   const [dayKey, setDayKey] = useState(0);
   const conversationsRef = useRef<HTMLDivElement>(null);
   // Real Valveman figures (confirmed 2026-09-18): 8 agents, ~4hrs of calls/day each at a
@@ -153,11 +159,15 @@ export default function App() {
   const transcriptionCost = monthlyMinutes * transcriptionRate;
   const analysisCost = monthlyCalls * analysisRate;
   const monthlyCost = transcriptionCost + analysisCost;
+  // Admins review; they do not request coaching, for themselves or anyone else. The server is
+  // where that is enforced (requireCoachingRights) — everything below only hides the buttons.
+  const readOnly = role === 'admin';
+  const agentFilter = role === 'admin' ? agentEmail : null;
   const accessCopy = role === 'employee'
     ? 'Your coaching and personal trends only'
     : role === 'manager'
       ? "Your team's daily coaching view"
-      : 'Company-wide settings and access controls';
+      : 'Every agent, read-only';
   // Demo build has no login, so "you" is a stand-in resolved to the most recent call's agent.
   // Live mode uses the real signed-in profile instead.
   const employeeCall = useMemo(
@@ -171,15 +181,18 @@ export default function App() {
   // re-filtering here would be redundant at best and wrong at worst (the client has no way to
   // know department membership, which is why that scoping happens behind the service-role key).
   // Demo mode has no backend, so the cosmetic switcher still filters client-side.
+  const forAgent = <T extends { agent_email: string }>(rows: T[]): T[] =>
+    agentFilter ? rows.filter((r) => r.agent_email?.toLowerCase() === agentFilter.toLowerCase()) : rows;
+
   const visibleCalls = useMemo(
-    () => (isDemo && role === 'employee' ? calls.filter((c) => c.agent_email === employeeEmail) : calls),
-    [calls, role, employeeEmail],
+    () => forAgent(isDemo && role === 'employee' ? calls.filter((c) => c.agent_email === employeeEmail) : calls),
+    [calls, role, employeeEmail, agentFilter],
   );
 
   const visibleDetails = useMemo(() => {
     const all = Object.values(detailsById);
-    return isDemo && role === 'employee' ? all.filter((d) => d.agent_email === employeeEmail) : all;
-  }, [detailsById, role, employeeEmail]);
+    return forAgent(isDemo && role === 'employee' ? all.filter((d) => d.agent_email === employeeEmail) : all);
+  }, [detailsById, role, employeeEmail, agentFilter]);
 
   // Each agent's own most recent day with calls — not one global date — so one agent's
   // idle week doesn't blank out another agent's rollup (and vice versa).
@@ -277,6 +290,9 @@ export default function App() {
           <RequestCoaching
             date={coachingDate}
             onDateChange={setCoachingDate}
+            agent={agentEmail}
+            onAgentChange={setAgentEmail}
+            isAdmin={role === 'admin'}
             onOpenCall={async (callId, isNew) => {
               if (isNew) {
                 // A newly coached call is not in the list yet, so refresh before selecting it,
@@ -289,7 +305,7 @@ export default function App() {
               setRevealCallId(callId);
             }}
           />
-          <DayCoaching date={coachingDate} refreshKey={dayKey} />
+          <DayCoaching date={coachingDate} agent={agentFilter} readOnly={readOnly} refreshKey={dayKey} />
         </>
       )}
 
@@ -334,8 +350,12 @@ export default function App() {
             <span>Conversations</span>
             <span style={{ fontWeight: 400, letterSpacing: 0, textTransform: 'none' }}>recent first</span>
           </header>
-          {calls.length === 0 ? (
-            <div className="empty">No coached calls yet. Pick a day above and coach one to see it here.</div>
+          {visibleCalls.length === 0 ? (
+            <div className="empty">
+              {calls.length === 0
+                ? 'No coached calls yet. Pick a day above and coach one to see it here.'
+                : 'No coached calls for this agent yet.'}
+            </div>
           ) : (
             <ul className="calls">
               {[...visibleCalls]
@@ -371,6 +391,7 @@ export default function App() {
           <CallDetail
             call={detail}
             dimensions={dimensions}
+            readOnly={readOnly}
             onAnalyzed={async () => {
               await load();
               const fresh = await api.call(detail.id).catch(() => null);

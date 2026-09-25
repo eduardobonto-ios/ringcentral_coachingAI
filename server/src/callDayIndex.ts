@@ -158,13 +158,20 @@ export async function indexRecentDays(days = 2, endingOn = manilaToday()) {
  * Per-day counts for a month, for the calendar.
  *
  * Reads Postgres only — no RingCentral call, so it is fast enough to run on every month change
- * and safe on a serverless function. An admin sees the whole account; anyone else sees only
- * their own calls, matched on the email RingCentral holds for their extension, which is the same
- * join the listing and coaching endpoints use.
+ * and safe on a serverless function. An admin sees the whole account, or one agent when they
+ * pick one; anyone else sees only their own calls, matched on the email RingCentral holds for
+ * their extension, which is the same join the listing and coaching endpoints use.
  */
-export async function monthOverview(opts: { month: string; email: string; isAdmin: boolean }): Promise<DayCount[]> {
+export async function monthOverview(opts: {
+  month: string;
+  email: string;
+  isAdmin: boolean;
+  /** Admin only: count just this agent's calls, so the badges match the day listing. */
+  agentEmail?: string | null;
+}): Promise<DayCount[]> {
   const { days, from, to } = monthWindow(opts.month);
-  const mine = opts.email.toLowerCase();
+  // Null means "every agent", which only an admin ever gets. Same rule as visibleTo().
+  const only = opts.isAdmin ? (opts.agentEmail?.toLowerCase() || null) : opts.email.toLowerCase();
 
   let [rows, coachedCalls] = await Promise.all([
     listDayIndex(days[0], days[days.length - 1]),
@@ -190,13 +197,13 @@ export async function monthOverview(opts: { month: string; email: string; isAdmi
   for (const row of rows) {
     indexed.add(row.day);
     if (row.extension_id === DAY_MARKER) continue;
-    if (!opts.isAdmin && row.agent_email.toLowerCase() !== mine) continue;
+    if (only && row.agent_email.toLowerCase() !== only) continue;
     coachable.set(row.day, (coachable.get(row.day) ?? 0) + row.coachable_count);
   }
 
   const coached = new Map<string, number>();
   for (const call of coachedCalls) {
-    if (!opts.isAdmin && call.agent_email.toLowerCase() !== mine) continue;
+    if (only && call.agent_email.toLowerCase() !== only) continue;
     const day = manilaDayOf(call.recorded_at);
     coached.set(day, (coached.get(day) ?? 0) + 1);
   }

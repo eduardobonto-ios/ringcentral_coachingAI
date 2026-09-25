@@ -38,29 +38,40 @@ export type CallOption = {
 /**
  * Which calls this viewer may see.
  *
- * An admin sees everyone. Anyone else sees only calls attributed to their own extension —
- * matched on the email RingCentral holds for that extension, which is the same join the rest of
- * the app uses. Someone with no RingCentral extension sees nothing, which is correct: they make
- * no calls.
+ * An admin sees everyone, or one agent when they pick one — they review other people's work, so
+ * the whole account at once is the wrong default for reading and the right one for searching.
+ * Anyone else sees only calls attributed to their own extension — matched on the email
+ * RingCentral holds for that extension, which is the same join the rest of the app uses.
+ * Someone with no RingCentral extension sees nothing, which is correct: they make no calls.
+ *
+ * `agentEmail` narrows, it never widens: it is honoured only for an admin, so a staff account
+ * cannot read a colleague's day by adding a query parameter.
  */
 function visibleTo(
   records: RcCallRecord[],
   byExtension: Map<string, RcExtension>,
-  viewer: { email: string; isAdmin: boolean },
+  viewer: { email: string; isAdmin: boolean; agentEmail?: string | null },
 ): { record: RcCallRecord; extension: RcExtension }[] {
+  const only = viewer.isAdmin ? (viewer.agentEmail?.toLowerCase() || null) : viewer.email.toLowerCase();
   const out: { record: RcCallRecord; extension: RcExtension }[] = [];
   for (const record of records) {
     if (!isCoachable(record)) continue;
     const extId = agentExtensionId(record);
     const extension = extId ? byExtension.get(extId) : undefined;
     if (!extension) continue;
-    if (!viewer.isAdmin && extension.email.toLowerCase() !== viewer.email.toLowerCase()) continue;
+    if (only && extension.email.toLowerCase() !== only) continue;
     out.push({ record, extension });
   }
   return out;
 }
 
-export async function listCallsForDay(opts: { date: string; email: string; isAdmin: boolean }): Promise<CallOption[]> {
+export async function listCallsForDay(opts: {
+  date: string;
+  email: string;
+  isAdmin: boolean;
+  /** Admin only: show just this agent's calls. */
+  agentEmail?: string | null;
+}): Promise<CallOption[]> {
   const { from, to } = dayWindow(opts.date);
   const byExtension = extensionIndex(await fetchExtensionsCached());
   const records = await fetchCallLog({ dateFrom: from, dateTo: to });
@@ -70,7 +81,11 @@ export async function listCallsForDay(opts: { date: string; email: string; isAdm
   // calendar, and scoping happens when it is read back.
   writeDayIndex(opts.date, records, byExtension);
 
-  const visible = visibleTo(records, byExtension, { email: opts.email, isAdmin: opts.isAdmin });
+  const visible = visibleTo(records, byExtension, {
+    email: opts.email,
+    isAdmin: opts.isAdmin,
+    agentEmail: opts.agentEmail,
+  });
 
   return Promise.all(
     visible.map(async ({ record, extension }) => {

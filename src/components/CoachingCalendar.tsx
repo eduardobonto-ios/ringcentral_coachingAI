@@ -38,12 +38,15 @@ export function CoachingCalendar({
   value,
   max,
   onChange,
+  /** Admin only: count one agent's calls instead of the whole account. */
+  agent = null,
   /** Bumped by the parent after a call is coached, so the badges refresh. */
   refreshKey = 0,
 }: {
   value: string;
   max: string;
   onChange: (date: string) => void;
+  agent?: string | null;
   refreshKey?: number;
 }) {
   const [month, setMonth] = useState(() => monthOf(value));
@@ -56,7 +59,7 @@ export function CoachingCalendar({
     setFailed(false);
 
     ringcentral
-      .monthOverview(month)
+      .monthOverview(month, agent)
       .then((r) => !cancelled && setDays(r.days))
       // A missing overview must not block picking a date — the grid still works, it just cannot
       // tell you which days are worth opening.
@@ -65,7 +68,9 @@ export function CoachingCalendar({
     return () => {
       cancelled = true;
     };
-  }, [month, refreshKey]);
+    // `agent` belongs here: the badges are per-agent counts, so switching who you are looking at
+    // makes every number on the grid wrong until it re-reads.
+  }, [month, agent, refreshKey]);
 
   const byDate = useMemo(() => new Map((days ?? []).map((d) => [d.date, d])), [days]);
   const blanks = leadingBlanks(month);

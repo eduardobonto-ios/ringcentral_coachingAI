@@ -51,6 +51,26 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   next();
 }
 
+/**
+ * Admin accounts are observers: they review coaching, they do not request it.
+ *
+ * Requesting coaching downloads a customer recording, transcribes it and pays a model to read
+ * it. That is the agent's own call to make about their own work — and an admin browsing the
+ * whole company could spend a lot of it by clicking around. Admins therefore see every agent's
+ * calls and every piece of coaching that exists, and cannot create new ones.
+ *
+ * Enforced here rather than by hiding buttons: the UI hides them too, but that is a courtesy.
+ */
+export function requireCoachingRights(req: Request, res: Response, next: NextFunction) {
+  if (req.user?.role === 'admin') {
+    return res.status(403).json({
+      error:
+        'Admin accounts are read-only for coaching: you can review coaching that already exists, but not request new coaching.',
+    });
+  }
+  next();
+}
+
 /** email -> department, for every profile. Only the server (service-role key) can see this. */
 export async function departmentByEmail(): Promise<Record<string, string | null>> {
   const { data, error } = await supabaseAdmin.from('profiles').select('email, department');

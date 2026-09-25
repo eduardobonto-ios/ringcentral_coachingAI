@@ -10,7 +10,8 @@
     "rc:sync": "tsx src/ringcentralOnce.ts",
     "test": "node --import tsx --test src/*.test.ts",
     "rc:index": "tsx src/indexDays.ts",
-    "agents:create": "tsx src/createAgentUsers.ts"
+    "agents:create": "tsx src/createAgentUsers.ts",
+    "admins:create": "tsx src/createAdminUsers.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

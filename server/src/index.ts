@@ -12,9 +12,10 @@ import { analyzeCall } from './coaching.js';
 import { startWeeklyReportCron } from './weeklyReport.js';
 import { startRingCentralSyncCron } from './ringcentralSync.js';
 import { listCallsForDay, coachOneCall } from './ringcentralOnDemand.js';
+import { fetchExtensionsCached } from './ringcentral.js';
 import { monthOverview, indexRecentDays, startDayIndexCron } from './callDayIndex.js';
 import { coachDay, readDayCoaching, DAY_SAMPLE_SIZE } from './dailyCoaching.js';
-import { requireAuth, canAccessAgentEmail, departmentByEmail } from './auth.js';
+import { requireAuth, requireCoachingRights, canAccessAgentEmail, departmentByEmail } from './auth.js';
 import { signedRecordingUrl } from './storage.js';
 
 // Uploads are staged here only until they reach Supabase Storage.
@@ -88,6 +89,17 @@ app.get('/api/cron/index-days', async (req, res) => {
 
 app.use('/api', requireAuth);
 
+/**
+ * The agent an admin has picked in the calendar panel, or null for "everyone".
+ *
+ * Only read here; every consumer re-checks that the caller is an admin before honouring it, so
+ * a staff account adding ?agent= to a request narrows nothing and widens nothing.
+ */
+const agentParam = (req: express.Request): string | null => {
+  const value = String(req.query.agent ?? '').trim();
+  return value || null;
+};
+
 app.get('/api/calls', async (req, res) => {
   const all = (await listCallSummaries()) as any[];
   const user = req.user!;
@@ -101,6 +113,31 @@ app.get('/api/calls', async (req, res) => {
 
 app.get('/api/rubric', (_req, res) => {
   res.json({ version: RUBRIC_VERSION, dimensions: DIMENSIONS });
+});
+
+/**
+ * The agent roster, so an admin can pick whose calls to look at.
+ *
+ * Admin only, because nobody else has anything to pick: an agent sees their own calls and a
+ * manager their department, both scoped server-side already.
+ *
+ * Read from RingCentral rather than from `profiles`: calls are attributed by extension, so this
+ * is the list of people who can actually have calls to review — a profile with no extension
+ * would sit in the picker and always come back empty. The roster is cached for 24h and the day
+ * listing loads it anyway, so this costs no extra API call in practice.
+ */
+app.get('/api/agents', async (req, res) => {
+  if (req.user!.role !== 'admin') return res.status(403).json({ error: 'Only admins can list agents.' });
+  try {
+    const roster = await fetchExtensionsCached();
+    res.json({
+      agents: roster
+        .map((e) => ({ email: e.email, name: e.name, title: e.jobTitle ?? null }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    });
+  } catch (e) {
+    res.status(502).json({ error: (e as Error).message });
+  }
 });
 
 app.get('/api/calls/:id', async (req, res) => {
@@ -139,7 +176,7 @@ app.get('/api/calls/:id/email', async (req, res) => {
 // On-demand coaching: run AI analysis for a call that was transcribed but never scored
 // (e.g. ANTHROPIC_API_KEY was unset at ingestion, or auto-analysis was deliberately skipped).
 // This is what "Coach me on this call" calls when a call has no analysis yet.
-app.post('/api/calls/:id/analyze', async (req, res) => {
+app.post('/api/calls/:id/analyze', requireCoachingRights, async (req, res) => {
   try {
     const row = (await getCallDetail(req.params.id)) as any;
     if (!row) return res.status(404).send('not found');
@@ -196,6 +233,7 @@ app.get('/api/ringcentral/calls', async (req, res) => {
       date,
       email: req.user!.email,
       isAdmin: req.user!.role === 'admin',
+      agentEmail: agentParam(req),
     });
     res.json({ date, calls });
   } catch (e) {
@@ -218,6 +256,7 @@ app.get('/api/ringcentral/month', async (req, res) => {
       month,
       email: req.user!.email,
       isAdmin: req.user!.role === 'admin',
+      agentEmail: agentParam(req),
     });
     res.json({ month, days });
   } catch (e) {
@@ -226,7 +265,7 @@ app.get('/api/ringcentral/month', async (req, res) => {
   }
 });
 
-app.post('/api/ringcentral/coach', async (req, res) => {
+app.post('/api/ringcentral/coach', requireCoachingRights, async (req, res) => {
   try {
     const { date, recordingId } = req.body ?? {};
     if (!date || !recordingId) return res.status(400).json({ error: 'date and recordingId are required' });
@@ -253,14 +292,20 @@ app.post('/api/ringcentral/coach', async (req, res) => {
 app.get('/api/coaching/day', async (req, res) => {
   try {
     const date = String(req.query.date ?? '');
-    res.json(await readDayCoaching({ date, email: req.user!.email }));
+    // Reading someone else's day summary is the same permission as reading their calls, so it
+    // goes through the same check rather than a second rule that could drift from it.
+    const requested = agentParam(req);
+    if (requested && !(await canAccessAgentEmail(req.user!, requested))) {
+      return res.status(403).json({ error: 'You cannot see that agent.' });
+    }
+    res.json(await readDayCoaching({ date, email: requested ?? req.user!.email }));
   } catch (e) {
     const message = (e as Error).message;
     res.status(/^Invalid date/.test(message) ? 400 : 500).json({ error: message });
   }
 });
 
-app.post('/api/coaching/day', async (req, res) => {
+app.post('/api/coaching/day', requireCoachingRights, async (req, res) => {
   try {
     const { date, limit } = req.body ?? {};
     if (!date) return res.status(400).json({ error: 'date is required' });
@@ -284,7 +329,7 @@ app.post('/api/coaching/day', async (req, res) => {
   }
 });
 
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+app.post('/api/upload', requireCoachingRights, upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'file is required' });
